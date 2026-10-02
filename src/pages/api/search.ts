@@ -1,0 +1,63 @@
+// Live search for the search forms (public/assets/js/search.js):
+//   GET /api/search?q=<terms>[&limit=6][&types=member,event][&taxonomy=member_category]
+// The same matching and ranking as the /search/ page, as JSON: the best matches with their type, URL
+// and a short excerpt, and the total. The types are those chosen under Settings, unless `types` names
+// others (types with pages of their own); with `taxonomy`, the terms of it whose names match come too
+// (those in use), so a filter can offer them.
+import type { APIRoute } from 'astro';
+import { supabase } from '../../lib/supabase';
+import { Loader } from '../../lib/data';
+import { permalink, termLink } from '../../lib/permalink';
+import { COMPOSABLE_TYPES, isTaxonomy, searchTypes, taxonomySingular, typeDef } from '../../lib/site';
+import { decodeEntities } from '../../lib/text/entities';
+import { termPagesOn } from '../../lib/templates';
+
+const plain = (html: string) => decodeEntities(String(html ?? '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n).replace(/\s+\S*$/, '')}…` : s);
+const PAGE_TYPES = new Set(COMPOSABLE_TYPES.map((t) => t.type));
+const TERM_LIMIT = 5;
+
+export const GET: APIRoute = async ({ url }) => {
+  const q = (url.searchParams.get('q') ?? '').trim().slice(0, 200);
+  const limit = Math.min(10, Math.max(1, parseInt(url.searchParams.get('limit') ?? '6', 10) || 6));
+  const asked = (url.searchParams.get('types') ?? '').split(',').map((t) => t.trim()).filter((t) => PAGE_TYPES.has(t));
+  const taxonomy = url.searchParams.get('taxonomy') ?? '';
+  const headers = {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'public, max-age=0, must-revalidate',
+    'Netlify-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=600',
+    'X-Robots-Tag': 'noindex',
+  };
+  const none = { q, total: 0, results: [], terms: [] };
+  if (q.length < 2) return new Response(JSON.stringify(none), { headers });
+  const loader = new Loader(supabase);
+  const types = asked.length ? asked : searchTypes((await loader.settings()).site);
+
+  // Terms of the taxonomy whose names hold the words, in use, by name.
+  let terms: { id: number; title: string; url: string; type: string }[] = [];
+  if (taxonomy && isTaxonomy(taxonomy)) {
+    const counts = await loader.termCounts(taxonomy);
+    // Without term pages a term is still offered (a filter can take it), with no address.
+    const pagesOn = termPagesOn((await loader.settings()).site, taxonomy);
+    const needle = q.toLowerCase();
+    terms = (await loader.allTerms())
+      .filter((t) => t.taxonomy === taxonomy && (counts.get(t.id) ?? 0) > 0 && decodeEntities(t.name).toLowerCase().includes(needle))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, TERM_LIMIT)
+      .map((t) => ({ id: t.id, title: decodeEntities(t.name), url: pagesOn ? termLink(t) : '', type: taxonomySingular(taxonomy) }));
+  }
+
+  if (!types.length) return new Response(JSON.stringify({ ...none, terms }), { headers });
+  const found = await loader.query({ postType: types, search: q, perPage: limit, page: 1, orderBy: 'relevance', terms: {} });
+  const results = found.ids
+    .map((id) => loader.entries.get(id))
+    .filter((e) => !!e)
+    .map((e) => ({
+      id: e!.id,
+      title: plain(e!.title_rendered ?? e!.title) || '(untitled)',
+      url: permalink(e!),
+      type: typeDef(e!.type)?.singular ?? e!.type,
+      excerpt: clip(plain(e!.excerpt_rendered ?? e!.excerpt ?? ''), 110),
+    }));
+  return new Response(JSON.stringify({ q, total: found.total, results, terms }), { headers });
+};

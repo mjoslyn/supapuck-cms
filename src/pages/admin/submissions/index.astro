@@ -1,0 +1,95 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { SITE_TZ } from '../../../lib/site';
+import { INPUT_TYPES, displayValue } from '../../../lib/forms/logic';
+import type { FormDef } from '../../../lib/forms/types';
+
+const db = Astro.locals.db;
+const formId = Number(Astro.url.searchParams.get('form')) || null;
+const { data: forms } = await db.from('forms').select('id, title, definition').order('title');
+const current = forms?.find((f) => f.id === formId);
+let q = db.from('form_submissions').select('id, form, form_id, data, created_at').order('created_at', { ascending: false }).limit(500);
+if (formId) q = q.eq('form_id', formId);
+const { data, error } = await q;
+if (error) throw error;
+
+const when = (s: string) => new Date(s).toLocaleString('en-US', { timeZone: SITE_TZ, dateStyle: 'medium', timeStyle: 'short' });
+const show = (v: unknown) => (Array.isArray(v) ? v.join(', ') : String(v ?? ''));
+const byId = new Map((forms ?? []).map((f) => [f.id, f.definition as FormDef]));
+
+/** Label/value pairs in form order (submissions of deleted forms fall back to the stored labels). */
+function rows(s: { form_id: number | null; data: any }): [string, string][] {
+  const def = s.form_id ? byId.get(s.form_id) : undefined;
+  const entry = s.data?.entry;
+  if (def && entry) return def.fields.filter((f) => INPUT_TYPES.includes(f.type)).map((f) => [f.label, displayValue(f, entry)]);
+  return Object.entries(s.data?.values ?? {}).map(([k, v]) => [k, show(v)]);
+}
+/** One-line summary: the first two answers. */
+const summary = (s: { form_id: number | null; data: any }) => rows(s).map(([, v]) => v).filter(Boolean).slice(0, 2).join(' · ');
+---
+<Admin title="Submissions">
+  <div class="flex items-end justify-between">
+    <div>
+      <h1 class="font-[Fraunces,Georgia,serif] text-3xl font-normal">{current ? current.title : 'Form submissions'}</h1>
+      <p class="mt-1 text-sm text-[#64748b]">{data?.length ?? 0} submission{data?.length === 1 ? '' : 's'}{(data?.length ?? 0) >= 500 ? ' (most recent 500)' : ''}.</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <select id="form-filter" class="rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5 text-sm">
+        <option value="">All forms</option>
+        {(forms ?? []).map((f) => <option value={f.id} selected={f.id === formId}>{f.title}</option>)}
+      </select>
+      {current && (
+        <>
+          <a href={`/api/admin/forms/${current.id}/entries.csv`} class="rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 text-sm hover:border-[#b87333] hover:text-[#b87333]">Export CSV</a>
+          <a href={`/admin/forms/${current.id}/`} class="rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 text-sm hover:border-[#b87333] hover:text-[#b87333]">Edit form</a>
+        </>
+      )}
+    </div>
+  </div>
+  <div class="mt-6 space-y-2">
+    {(data ?? []).map((s) => (
+      <details class="rounded bg-white shadow-[0_0_0_1px_rgba(26,26,46,0.08)]" data-row={s.id}>
+        <summary class="flex cursor-pointer items-center gap-4 px-4 py-3 text-sm">
+          {!current && <span class="w-48 shrink-0 truncate font-medium">{s.form}</span>}
+          <span class="min-w-0 flex-1 truncate text-[#1a1a2e]">{summary(s) || '(empty)'}</span>
+          <span class="shrink-0 text-[#64748b]">{when(s.created_at)}</span>
+        </summary>
+        <dl class="grid grid-cols-[14rem_1fr] gap-x-4 gap-y-2 border-t border-[#1a1a2e]/5 px-4 py-3 text-sm">
+          {rows(s).map(([k, v]) => (
+            <>
+              <dt class="text-[#64748b]">{k}</dt>
+              <dd class="whitespace-pre-wrap">{v || '-'}</dd>
+            </>
+          ))}
+          {s.data?.referrer && (
+            <>
+              <dt class="text-[#94a3b8]">Sent from</dt>
+              <dd class="text-[#94a3b8]">{s.data.referrer}</dd>
+            </>
+          )}
+        </dl>
+        <div class="flex justify-end gap-3 border-t border-[#1a1a2e]/5 px-4 py-2">
+          {rows(s).find(([, v]) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) && (
+            <a href={`mailto:${rows(s).find(([, v]) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))![1]}`} class="text-xs text-[#64748b] hover:text-[#b87333]">Reply by email</a>
+          )}
+          <button data-delete={s.id} class="text-xs text-[#b91c1c] hover:underline">Delete</button>
+        </div>
+      </details>
+    ))}
+    {!data?.length && <p class="rounded bg-white px-4 py-10 text-center text-sm text-[#64748b] shadow-[0_0_0_1px_rgba(26,26,46,0.08)]">No submissions yet.</p>}
+  </div>
+</Admin>
+
+<script>
+  document.getElementById('form-filter')?.addEventListener('change', (e) => {
+    const v = (e.target as HTMLSelectElement).value;
+    location.href = v ? `/admin/submissions/?form=${v}` : '/admin/submissions/';
+  });
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-delete]')) {
+    b.addEventListener('click', async () => {
+      if (!confirm('Delete this submission? This cannot be undone.')) return;
+      const res = await fetch(`/api/admin/submissions/${b.dataset.delete}`, { method: 'DELETE' });
+      if (res.ok) document.querySelector(`[data-row="${b.dataset.delete}"]`)?.remove();
+    });
+  }
+</script>

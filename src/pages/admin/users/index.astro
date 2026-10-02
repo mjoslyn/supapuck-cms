@@ -1,0 +1,71 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { SITE_TZ } from '../../../lib/site';
+import { serviceClient } from '../../../lib/supabase';
+
+// Accounts come from Supabase Auth (service key; this page is admins only), roles from profiles.
+const { data: list } = await serviceClient().auth.admin.listUsers({ perPage: 1000 });
+const { data: profiles } = await serviceClient().from('profiles').select('id, role, display_name');
+const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+const users = (list?.users ?? [])
+  .map((u) => ({ id: u.id, email: u.email ?? '', name: byId.get(u.id)?.display_name ?? '', role: byId.get(u.id)?.role ?? 'viewer', lastSignIn: u.last_sign_in_at, invited: !u.last_sign_in_at && !!u.invited_at }))
+  .sort((a, b) => (a.role === b.role ? a.email.localeCompare(b.email) : ['admin', 'editor', 'viewer'].indexOf(a.role) - ['admin', 'editor', 'viewer'].indexOf(b.role)));
+const me = Astro.locals.user.id;
+const ok = Astro.url.searchParams.get('ok');
+const error = Astro.url.searchParams.get('error');
+const ROLE_LABELS: Record<string, string> = { admin: 'Admin', editor: 'Editor', viewer: 'No access' };
+const when = (s?: string | null) => (s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: SITE_TZ }) : '');
+---
+<Admin title="Users">
+  <div class="flex items-end justify-between gap-6">
+    <div>
+      <h1 class="font-[Fraunces,Georgia,serif] text-3xl font-normal">Users</h1>
+      <p class="mt-1 text-sm text-[#64748b]">Editors manage content, templates, media, forms and compose. Admins also manage site settings and users.</p>
+    </div>
+    <form method="post" action="/api/admin/users" class="flex gap-2">
+      <input type="hidden" name="action" value="invite" />
+      <input name="email" type="email" required placeholder="Email address" class="w-60 rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 text-sm outline-none focus:border-[#b87333]" />
+      <select name="role" class="rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5 text-sm">
+        <option value="editor">Editor</option>
+        <option value="admin">Admin</option>
+      </select>
+      <button class="rounded-sm bg-[#1a1a2e] px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">Invite</button>
+    </form>
+  </div>
+  {ok && <p class="mt-4 rounded bg-[#6db56d]/15 px-3 py-2 text-sm text-[#3f7a3f]">{ok}</p>}
+  {error && <p class="mt-4 rounded bg-[#c4592a]/10 px-3 py-2 text-sm text-[#c4592a]">{error}</p>}
+  <table class="mt-6 w-full border-collapse overflow-hidden rounded bg-white text-sm shadow-[0_0_0_1px_rgba(26,26,46,0.08)]">
+    <thead class="bg-[#f5f3f0] text-left text-xs tracking-wider text-[#64748b] uppercase">
+      <tr>
+        <th class="px-4 py-2.5 font-semibold">User</th>
+        <th class="px-4 py-2.5 font-semibold">Role</th>
+        <th class="px-4 py-2.5 font-semibold">Last signed in</th>
+      </tr>
+    </thead>
+    <tbody>
+      {users.map((u) => (
+        <tr class="border-t border-[#1a1a2e]/5">
+          <td class="px-4 py-2.5">
+            <div class="font-medium">{u.email}</div>
+            {u.name && <div class="text-xs text-[#64748b]">{u.name}</div>}
+          </td>
+          <td class="px-4 py-2.5">
+            {u.id === me ? (
+              <span class="text-[#64748b]">{ROLE_LABELS[u.role]} (you)</span>
+            ) : (
+              <form method="post" action="/api/admin/users" class="flex items-center gap-2">
+                <input type="hidden" name="action" value="role" />
+                <input type="hidden" name="id" value={u.id} />
+                <select name="role" aria-label={`Role for ${u.email}`} class="rounded border border-[#1a1a2e]/15 bg-white px-2 py-1" onchange="this.form.requestSubmit()">
+                  {['editor', 'admin', 'viewer'].map((r) => <option value={r} selected={r === u.role}>{ROLE_LABELS[r]}</option>)}
+                </select>
+                <noscript><button class="text-xs underline">Save</button></noscript>
+              </form>
+            )}
+          </td>
+          <td class="px-4 py-2.5 text-[#64748b]">{u.invited ? 'Invited, not signed in yet' : when(u.lastSignIn)}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</Admin>

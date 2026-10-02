@@ -1,0 +1,202 @@
+[
+ {
+  "in": "<h2 \n\t\tdata-interaction-id=\"c05584a\" \n\t\tclass=\"e-heading-base\" \n\t\tdata-e-type=\"widget\" data-id=\"c05584a\"\n\t>\n\t\t\tThis is a title\n\t\t</h2>",
+  "autop": "<h2 \n\t\tdata-interaction-id=\"c05584a\" \n\t\tclass=\"e-heading-base\" \n\t\tdata-e-type=\"widget\" data-id=\"c05584a\"\n\t><br />\n\t\t\tThis is a title<br />\n\t\t</h2>\n",
+  "texturize": "<h2 \n\t\tdata-interaction-id=\"c05584a\" \n\t\tclass=\"e-heading-base\" \n\t\tdata-e-type=\"widget\" data-id=\"c05584a\"\n\t>\n\t\t\tThis is a title\n\t\t</h2>"
+ },
+ {
+  "in": "Enjoy live music performed by some of the region's most talented artists. The series takes place every Thursday at the Gazebo throughout the Summer; come relax in the village square!",
+  "autop": "<p>Enjoy live music performed by some of the region's most talented artists. The series takes place every Thursday at the Gazebo throughout the Summer; come relax in the village square!</p>\n",
+  "texturize": "Enjoy live music performed by some of the region&#8217;s most talented artists. The series takes place every Thursday at the Gazebo throughout the Summer; come relax in the village square!"
+ },
+ {
+  "in": "It's 5'10\" -- \"quoted\" 'single' 1990's rock 'n' roll... 10x20 (tm) -- em---dash - en ",
+  "autop": "<p>It's 5'10\" -- \"quoted\" 'single' 1990's rock 'n' roll... 10x20 (tm) -- em---dash - en </p>\n",
+  "texturize": "It&#8217;s 5&#8217;10&#8221; &#8212; &#8220;quoted&#8221; &#8216;single&#8217; 1990&#8217;s rock &#8216;n&#8217; roll&#8230; 10&#215;20 &#8482; &#8212; em&#8212;dash &#8211; en "
+ },
+ {
+  "in": "Welcome to Sweet Minis! \n\nWe are a family run mobile mini donut and gourmet popsicle vendor. We offer hand decorated mini donuts, and all natural popsicles that will leave you happy and feeling good. We are available for weddings and private events and would love to help make your special moment even sweeter. ",
+  "autop": "<p>Welcome to Sweet Minis! </p>\n<p>We are a family run mobile mini donut and gourmet popsicle vendor. We offer hand decorated mini donuts, and all natural popsicles that will leave you happy and feeling good. We are available for weddings and private events and would love to help make your special moment even sweeter. </p>\n",
+  "texturize": "Welcome to Sweet Minis! \n\nWe are a family run mobile mini donut and gourmet popsicle vendor. We offer hand decorated mini donuts, and all natural popsicles that will leave you happy and feeling good. We are available for weddings and private events and would love to help make your special moment even sweeter. "
+ },
+ {
+  "in": "The Kelly House & Timberline Lodge",
+  "autop": "<p>The Kelly House & Timberline Lodge</p>\n",
+  "texturize": "The Kelly House &#038; Timberline Lodge"
+ },
+ {
+  "in": "Beichner Waste Services provides solid waste services for commercial, industrial and residential customers throughout Cattaraugus and Chautauqua Counties.",
+  "autop": "<p>Beichner Waste Services provides solid waste services for commercial, industrial and residential customers throughout Cattaraugus and Chautauqua Counties.</p>\n",
+  "texturize": "Beichner Waste Services provides solid waste services for commercial, industrial and residential customers throughout Cattaraugus and Chautauqua Counties."
+ },
+ {
+  "in": "Full service convenience store with large self-service fuel featuring American -made gasoline and diesel from Warren PA-based United Refining Company.",
+  "autop": "<p>Full service convenience store with large self-service fuel featuring American -made gasoline and diesel from Warren PA-based United Refining Company.</p>\n",
+  "texturize": "Full service convenience store with large self-service fuel featuring American -made gasoline and diesel from Warren PA-based United Refining Company."
+ },
+ {
+  "in": "Keller Williams Realty",
+  "autop": "<p>Keller Williams Realty</p>\n",
+  "texturize": "Keller Williams Realty"
+ },
+ {
+  "in": "Ellicottville Lacrosse Festival 2025",
+  "autop": "<p>Ellicottville Lacrosse Festival 2025</p>\n",
+  "texturize": "Ellicottville Lacrosse Festival 2025"
+ },
+ {
+  "in": "North Park Innovations Group, Inc",
+  "autop": "<p>North Park Innovations Group, Inc</p>\n",
+  "texturize": "North Park Innovations Group, Inc"
+ },
+ {
+  "in": "Olean General Hospital",
+  "autop": "<p>Olean General Hospital</p>\n",
+  "texturize": "Olean General Hospital"
+ },
+ {
+  "in": "Bob McCarthy's Irish Christmas",
+  "autop": "<p>Bob McCarthy's Irish Christmas</p>\n",
+  "texturize": "Bob McCarthy&#8217;s Irish Christmas"
+ },
+ {
+  "in": "Our fabulous menu and extensive wine list offer a casual fine dining experience to match any palate.",
+  "autop": "<p>Our fabulous menu and extensive wine list offer a casual fine dining experience to match any palate.</p>\n",
+  "texturize": "Our fabulous menu and extensive wine list offer a casual fine dining experience to match any palate."
+ },
+ {
+  "in": "Anjanette Nicolazzo, Realtor with ERA Team VP",
+  "autop": "<p>Anjanette Nicolazzo, Realtor with ERA Team VP</p>\n",
+  "texturize": "Anjanette Nicolazzo, Realtor with ERA Team VP"
+ },
+ {
+  "in": "Seasonally inspired. A gathering place for all.\n",
+  "autop": "<p>Seasonally inspired. A gathering place for all.</p>\n",
+  "texturize": "Seasonally inspired. A gathering place for all.\n"
+ },
+ {
+  "in": "This whole idea all started when we began brewing in 2015",
+  "autop": "<p>This whole idea all started when we began brewing in 2015</p>\n",
+  "texturize": "This whole idea all started when we began brewing in 2015"
+ },
+ {
+  "in": "Located minutes from Ellicottville, NY and right around the corner from the Seneca Allegany Casino. The White Pine Lodge is the perfect choice for your visit to beautiful WNY!",
+  "autop": "<p>Located minutes from Ellicottville, NY and right around the corner from the Seneca Allegany Casino. The White Pine Lodge is the perfect choice for your visit to beautiful WNY!</p>\n",
+  "texturize": "Located minutes from Ellicottville, NY and right around the corner from the Seneca Allegany Casino. The White Pine Lodge is the perfect choice for your visit to beautiful WNY!"
+ },
+ {
+  "in": "Loop Builder Test Post 5",
+  "autop": "<p>Loop Builder Test Post 5</p>\n",
+  "texturize": "Loop Builder Test Post 5"
+ },
+ {
+  "in": "CCB – True Independent Banking",
+  "autop": "<p>CCB – True Independent Banking</p>\n",
+  "texturize": "CCB – True Independent Banking"
+ },
+ {
+  "in": "A place with a mission to support local business and community, where you can find unique items both old and new!  Our boutique store features local handmade artwork and gift baskets for all occasions, with an emphasis on local flair. Life is all about finding people who are your kind of crazy!",
+  "autop": "<p>A place with a mission to support local business and community, where you can find unique items both old and new!  Our boutique store features local handmade artwork and gift baskets for all occasions, with an emphasis on local flair. Life is all about finding people who are your kind of crazy!</p>\n",
+  "texturize": "A place with a mission to support local business and community, where you can find unique items both old and new!  Our boutique store features local handmade artwork and gift baskets for all occasions, with an emphasis on local flair. Life is all about finding people who are your kind of crazy!"
+ },
+ {
+  "in": "After being in the water treatment buisness for over 45 years, we know water",
+  "autop": "<p>After being in the water treatment buisness for over 45 years, we know water</p>\n",
+  "texturize": "After being in the water treatment buisness for over 45 years, we know water"
+ },
+ {
+  "in": "Price 4 Charter Buses & Limos Buffalo",
+  "autop": "<p>Price 4 Charter Buses & Limos Buffalo</p>\n",
+  "texturize": "Price 4 Charter Buses &#038; Limos Buffalo"
+ },
+ {
+  "in": "Andree McRae- Licensed Associate Real Estate Broker",
+  "autop": "<p>Andree McRae- Licensed Associate Real Estate Broker</p>\n",
+  "texturize": "Andree McRae- Licensed Associate Real Estate Broker"
+ },
+ {
+  "in": "We Always Put You First - from Business Insurance, Investment and Estate planning, put our experience to work.",
+  "autop": "<p>We Always Put You First - from Business Insurance, Investment and Estate planning, put our experience to work.</p>\n",
+  "texturize": "We Always Put You First &#8211; from Business Insurance, Investment and Estate planning, put our experience to work."
+ },
+ {
+  "in": "Clayton L. Silvernail, Esq., PLLC",
+  "autop": "<p>Clayton L. Silvernail, Esq., PLLC</p>\n",
+  "texturize": "Clayton L. Silvernail, Esq., PLLC"
+ },
+ {
+  "in": "High-end consignments for men, women & children",
+  "autop": "<p>High-end consignments for men, women & children</p>\n",
+  "texturize": "High-end consignments for men, women &#038; children"
+ },
+ {
+  "in": "So Last Season Vintage",
+  "autop": "<p>So Last Season Vintage</p>\n",
+  "texturize": "So Last Season Vintage"
+ },
+ {
+  "in": "Zuech’s Septic Service",
+  "autop": "<p>Zuech’s Septic Service</p>\n",
+  "texturize": "Zuech’s Septic Service"
+ },
+ {
+  "in": "ZenBusiness makes it easy to start, run & grow your business. We are a small business that is excited about helping other entrepreneurs realize their dreams of creating and growing a successful business.",
+  "autop": "<p>ZenBusiness makes it easy to start, run & grow your business. We are a small business that is excited about helping other entrepreneurs realize their dreams of creating and growing a successful business.</p>\n",
+  "texturize": "ZenBusiness makes it easy to start, run &#038; grow your business. We are a small business that is excited about helping other entrepreneurs realize their dreams of creating and growing a successful business."
+ },
+ {
+  "in": "Ellicottville Brewing Co. newest and now primary production facility located in Little Valley, completed with a pub and pizzeria!  ",
+  "autop": "<p>Ellicottville Brewing Co. newest and now primary production facility located in Little Valley, completed with a pub and pizzeria!  </p>\n",
+  "texturize": "Ellicottville Brewing Co. newest and now primary production facility located in Little Valley, completed with a pub and pizzeria!  "
+ },
+ {
+  "in": "Michael Halloran Construction",
+  "autop": "<p>Michael Halloran Construction</p>\n",
+  "texturize": "Michael Halloran Construction"
+ },
+ {
+  "in": "Mud, Sweat n’ Gears Ski and Snowboard",
+  "autop": "<p>Mud, Sweat n’ Gears Ski and Snowboard</p>\n",
+  "texturize": "Mud, Sweat n’ Gears Ski and Snowboard"
+ },
+ {
+  "in": "Experience the comforting atmosphere and the unique menu offered at Dina’s Restaurant",
+  "autop": "<p>Experience the comforting atmosphere and the unique menu offered at Dina’s Restaurant</p>\n",
+  "texturize": "Experience the comforting atmosphere and the unique menu offered at Dina’s Restaurant"
+ },
+ {
+  "in": "The trail, still in the planning stages, is hoped to be over 16 miles of 10-foot wide, paved trails that will link Ellicottville and Great Valley",
+  "autop": "<p>The trail, still in the planning stages, is hoped to be over 16 miles of 10-foot wide, paved trails that will link Ellicottville and Great Valley</p>\n",
+  "texturize": "The trail, still in the planning stages, is hoped to be over 16 miles of 10-foot wide, paved trails that will link Ellicottville and Great Valley"
+ },
+ {
+  "in": "Unique gifts for every occasion, as well as classic items",
+  "autop": "<p>Unique gifts for every occasion, as well as classic items</p>\n",
+  "texturize": "Unique gifts for every occasion, as well as classic items"
+ },
+ {
+  "in": "Providing Marketing Solutions to Grow Your Business",
+  "autop": "<p>Providing Marketing Solutions to Grow Your Business</p>\n",
+  "texturize": "Providing Marketing Solutions to Grow Your Business"
+ },
+ {
+  "in": "Tina J Dillon- Keller Williams Realty",
+  "autop": "<p>Tina J Dillon- Keller Williams Realty</p>\n",
+  "texturize": "Tina J Dillon- Keller Williams Realty"
+ },
+ {
+  "in": "The start and finish of both the Half Marathon & 5k are at Holiday Valley Resort in Ellicottville, NY. You could not ask for a nicer venue to run a race!",
+  "autop": "<p>The start and finish of both the Half Marathon & 5k are at Holiday Valley Resort in Ellicottville, NY. You could not ask for a nicer venue to run a race!</p>\n",
+  "texturize": "The start and finish of both the Half Marathon &#038; 5k are at Holiday Valley Resort in Ellicottville, NY. You could not ask for a nicer venue to run a race!"
+ },
+ {
+  "in": "Shopping, dining & nightlife on Washington Street — Ellicottville's walkable village has it all.",
+  "autop": "<p>Shopping, dining & nightlife on Washington Street — Ellicottville's walkable village has it all.</p>\n",
+  "texturize": "Shopping, dining &#038; nightlife on Washington Street — Ellicottville&#8217;s walkable village has it all."
+ },
+ {
+  "in": "Holiday Valley Resort",
+  "autop": "<p>Holiday Valley Resort</p>\n",
+  "texturize": "Holiday Valley Resort"
+ }
+]

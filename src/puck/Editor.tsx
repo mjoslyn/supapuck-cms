@@ -1,0 +1,857 @@
+// The visual editor. Content mode edits an entry's blocks inside its template; layout mode edits the
+// template document itself (pages like the homepage keep their content in the template).
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Puck, blocksPlugin, createUsePuck, outlinePlugin, useGetPuck, type Data } from '@puckeditor/core';
+import Composer, { type LivePage, type Selection } from '../admin/Composer';
+import { isComposed } from '../lib/compose/outline';
+import { findBlock, replaceBlock } from '../lib/puck/tree';
+import '@puckeditor/core/puck.css';
+import { SITE_TZ, taxonomiesOf } from '../lib/site';
+import { browserClient } from '../lib/supabase-browser';
+import { Loader } from '../lib/data';
+import { permalink } from '../lib/permalink';
+import { mediaUrl } from '../lib/media/image';
+import { prepare } from '../render/prepare';
+import { renderItems } from '../render/engine';
+import { templateCandidates, VENDOR_CSS } from '../render/page';
+import { hasContentBlock, type TemplateInfo } from '../lib/templates';
+import { MAIN_AREA, areaItems, areaProp, templateAreas, uniqueAreas } from '../lib/content/areas';
+import { collapseAll } from '../lib/content/linked-patterns';
+import { bodyClasses } from '../render/body-classes';
+import '../render/blocks';
+import type { Env, RenderCtx } from '../render/env';
+import type { PuckItem } from '../lib/puck/types';
+import type { Entry } from '../lib/types';
+import { buildConfig, EDITABLE_TYPES } from './config';
+import { EnvContext, StaticHtml } from './BlockView';
+import { EntryForm, type EntryState } from './entry-fields';
+import { inlinePatterns } from './patterns';
+import { PatternsPanel } from './PatternsPanel';
+import { A11yMarksContext, A11yPanel } from './A11yPanel';
+import parse, { Element, type DOMNode } from 'html-react-parser';
+// The public site stylesheet, so the canvas matches the site.
+import siteCss from '../styles/site.css?url';
+
+export interface EditorProps {
+  entryId?: number;
+  template?: { kind: 'template' | 'part' | 'pattern'; slug: string };
+}
+
+const CONTENT_MARKER = '<cms-content></cms-content>';
+/** What saving compares: the page's blocks and its root props (the template's other content areas). */
+const docJson = (d: Data) => {
+  // Accessibility marks save on their own as they are made (A11yPanel), so they aren't unsaved edits.
+  const { a11y: _marks, ...props } = (d.root?.props ?? {}) as Record<string, unknown>;
+  return JSON.stringify([d.content, props]);
+};
+
+function emptyCtx(loader: Loader, queried: RenderCtx['queried'], settings: Record<string, any>): RenderCtx {
+  return { loader, queried, settings, queries: new Map(), docs: new Map(), css: [], assets: new Set(), data: new Map(), scripts: [], rendered: [], editor: true };
+}
+
+export default function Editor({ entryId, template }: EditorProps) {
+  const db = browserClient();
+  const [entry, setEntry] = useState<Entry | null>(null);
+  const [state, setState] = useState<EntryState | null>(null);
+  const [initial, setInitial] = useState<Data | null>(null);
+  const [chrome, setChrome] = useState<PuckItem[]>([]);
+  const [mode, setMode] = useState<'content' | 'layout'>('content');
+  // The template's content areas besides main (slots on the page's root).
+  const [areaList, setAreas] = useState<string[]>([]);
+  const [templateSlug, setTemplateSlug] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<TemplateInfo[]>([]);
+  const [ctx, setCtx] = useState<RenderCtx | null>(null);
+  const [status, setStatus] = useState<string>('');
+  // Publishing state: live status, changes kept aside on a published page, edits not saved yet.
+  const [liveStatus, setLiveStatus] = useState<string>('draft');
+  const [pending, setPending] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [revisionsVersion, setRevisionsVersion] = useState(0);
+  const savedJson = useRef('');
+  const [error, setError] = useState<string>('');
+  const dataRef = useRef<Data | null>(null);
+  const settingsRef = useRef<Record<string, any>>({});
+
+  // Load entry + template, decide the editing mode.
+  useEffect(() => {
+    (async () => {
+      const loader = new Loader(db);
+      const settings = await loader.settings();
+      settingsRef.current = settings;
+      const { data: tpls } = await db.from('templates').select('slug, title, content').eq('kind', 'template').order('slug');
+      setTemplates((tpls ?? []).map((t) => ({ slug: t.slug, title: t.title, content: hasContentBlock((t.content as any)?.content) })));
+
+      if (template) {
+        const doc = await loader.template(template.kind, template.slug);
+        const raw = (doc as Data) ?? { root: { props: {} }, content: [] };
+        const data = { ...raw, content: (await inlinePatterns(raw.content as PuckItem[], loader)) as Data['content'] };
+        setMode('layout');
+        setTemplateSlug(template.slug);
+        setChrome([]);
+        setInitial(data);
+        dataRef.current = data;
+        return;
+      }
+
+      const e = await loader.entryById(entryId!, true);
+      if (!e) throw new Error('Entry not found');
+      await loader.loadMedia(e.featured_media_id ? [e.featured_media_id] : []);
+      await loader.allTerms();
+      const queried = { kind: 'singular' as const, entry: e, page: 1, url: new URL(settings.site?.front_page_id === e.id ? '/' : permalink(e), location.origin), isFront: settings.site?.front_page_id === e.id };
+      let tplItems: PuckItem[] = [];
+      let slug: string | null = null;
+      for (const s of templateCandidates(queried, settings.site?.templates)) {
+        const doc = await loader.template('template', s);
+        if (doc) {
+          tplItems = doc.content as PuckItem[];
+          slug = s;
+          break;
+        }
+      }
+      const media = e.featured_media_id ? loader.media.get(e.featured_media_id) : undefined;
+      // Unpublished changes to a live page open instead of the live version.
+      const [{ data: d }, { data: saved }] = await Promise.all([
+        db.from('entry_drafts').select('draft').eq('entry_id', e.id).maybeSingle(),
+        db.from('entries').select('draft_saved_at').eq('id', e.id).single(),
+      ]);
+      const draft = d?.draft as { content?: Data; entry?: EntryState } | null;
+      setLiveStatus(e.status);
+      setPending(draft ? saved?.draft_saved_at ?? null : null);
+      if (draft?.content) e.content = draft.content;
+      setEntry(e);
+      if (draft?.entry) setState(draft.entry);
+      else setState({
+        title: e.title,
+        slug: e.slug,
+        status: e.status === 'trash' ? 'draft' : e.status,
+        excerpt: e.excerpt,
+        template: e.template,
+        featured_image: media ? mediaUrl(media.path) : null,
+        featured_media_id: media?.id ?? null,
+        fields: e.fields ?? {},
+        event_start: e.event_start,
+        event_end: e.event_end,
+        event_all_day: e.event_all_day || e.fields?.all_day === true,
+        tags: (e.term_ids ?? []).map((id) => loader.terms.get(id)).filter((t) => t?.taxonomy === 'tag').map((t) => t!.name),
+        terms: Object.fromEntries(taxonomiesOf(e.type).map((tax) => [tax, (e.term_ids ?? []).filter((id) => loader.terms.get(id)?.taxonomy === tax)])),
+      });
+      setTemplateSlug(slug);
+      if (hasContentBlock(tplItems)) {
+        setMode('content');
+        setChrome(tplItems);
+        const raw = (e.content as Data) ?? { root: { props: {} }, content: [] };
+        // The template's other content areas are slots on the content's root (empty until filled).
+        const others = templateAreas(tplItems).filter((a) => a !== MAIN_AREA);
+        const rootProps: Record<string, unknown> = { ...(raw.root?.props ?? {}) };
+        for (const area of others) rootProps[areaProp(area)] = await inlinePatterns(areaItems(raw, area) as PuckItem[], loader);
+        setAreas(others);
+        const data = { ...raw, root: { ...raw.root, props: rootProps }, content: (await inlinePatterns(raw.content as PuckItem[], loader)) as Data['content'] } as Data;
+        setInitial(data);
+        dataRef.current = data;
+        savedJson.current = docJson(data);
+      } else {
+        setMode('layout');
+        setChrome([]);
+        const data = { root: { props: {} }, content: await inlinePatterns(tplItems, loader) } as Data;
+        setInitial(data);
+        dataRef.current = data;
+      }
+    })().catch((err) => setError(String(err?.message ?? err)));
+  }, []);
+
+  // Build render context (queries, media, CSS) for the current document. Re-run on edits.
+  const rebuild = useCallback(async () => {
+    const loader = new Loader(db);
+    const settings = settingsRef.current;
+    // The page as edited so far: its settings and fields show in the canvas before saving.
+    const e = entry
+      ? {
+          ...entry,
+          fields: state?.fields ?? entry.fields,
+          title: state?.title ?? entry.title,
+          title_rendered: state && state.title !== entry.title ? null : entry.title_rendered,
+          excerpt: state?.excerpt ?? entry.excerpt,
+          featured_media_id: state ? (state.featured_media_id ?? null) : entry.featured_media_id,
+        }
+      : undefined;
+    const queried = e
+      ? { kind: 'singular' as const, entry: e, page: 1, url: new URL(settings.site?.front_page_id === e.id ? '/' : permalink(e), location.origin), isFront: settings.site?.front_page_id === e.id }
+      : { kind: '404' as const, page: 1, url: new URL('/', location.origin) };
+    const next = emptyCtx(loader, queried, settings);
+    if (e) {
+      loader.entries.set(e.id, e);
+      if (e.featured_media_id) await loader.loadMedia([e.featured_media_id]);
+    }
+    const content = (dataRef.current?.content ?? []) as PuckItem[];
+    const areas: PuckItem[] = [];
+    if (e && mode === 'content') {
+      next.docs.set(`content:${e.id}`, content);
+      for (const area of areaList) {
+        const items = areaItems(dataRef.current, area) as PuckItem[];
+        next.docs.set(`content:${e.id}:${area}`, items);
+        areas.push(...items);
+      }
+    }
+    await prepare([...chrome, ...content, ...areas], next);
+    setCtx(next);
+  }, [entry, state, chrome, mode, areaList]);
+
+  useEffect(() => {
+    if (initial) rebuild().catch((err) => setError(String(err?.message ?? err)));
+  }, [initial, chrome]);
+
+  const timer = useRef<number | undefined>(undefined);
+  const lastJson = useRef('');
+  const onChange = (data: Data) => {
+    dataRef.current = data;
+    // A change of accessibility marks only (saved on their own): not an unsaved edit.
+    if (marksOnly.current) {
+      marksOnly.current = false;
+      return;
+    }
+    const json = docJson(data);
+    if (savedJson.current && json !== savedJson.current) setDirty(true);
+    if (json === lastJson.current) return;
+    lastJson.current = json;
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => rebuild().catch((err) => setError(String(err?.message ?? err))), 500);
+  };
+
+  // Page settings and fields (a guide's itinerary, an event's dates...) update the canvas as they are edited.
+  const stateTimer = useRef<number | undefined>(undefined);
+  const firstState = useRef(true);
+  useEffect(() => {
+    if (!state) return;
+    if (firstState.current) {
+      firstState.current = false;
+      return;
+    }
+    window.clearTimeout(stateTimer.current);
+    stateTimer.current = window.setTimeout(() => rebuild().catch((err) => setError(String(err?.message ?? err))), 400);
+    return () => window.clearTimeout(stateTimer.current);
+  }, [state]);
+
+  const env: Env | null = ctx ? { ctx, post: ctx.queried.entry ?? null, query: null, parentLayout: null } : null;
+
+  // Stable across context rebuilds: a new config makes Puck re-resolve every block and fire onChange.
+  // Editing an entry, the block list offers only blocks that apply to its type; templates get them all.
+  const entryType = entry?.type;
+  const config = useMemo(() => {
+    const c = buildConfig(EDITABLE_TYPES, entryType);
+    c.root = {
+      fields: state
+        ? {
+            entry: {
+              type: 'custom',
+              label: 'Page settings',
+              render: () => <EntryFormBridge />,
+            },
+            ...Object.fromEntries(areaList.map((a) => [areaProp(a), { type: 'slot' }])),
+          }
+        : {},
+      render: ({ children, ...props }: { children: ReactNode } & Record<string, any>) => <ChromeFromContext content={children} slots={props} />,
+    } as any;
+    return c;
+  }, [state === null, entryType, areaList.join()]);
+
+  // Compose panel: docked beside the editor; pinned keeps it open (per browser).
+  const puckRef = useRef<ReturnType<typeof useGetPuck> | null>(null);
+  const [pinned, setPinned] = useState(readPinned);
+  const [selection, setSelectionState] = useState<Selection | null>(null);
+  // Only when the selected block or its data changed (a new object each time would re-render Puck in a loop).
+  const setSelection = useCallback((next: Selection | null) => setSelectionState((prev) => (prev?.item === next?.item && prev?.top === next?.top ? prev : next)), []);
+  const [composeOpen, setComposeOpen] = useState(() => readPinned() || new URLSearchParams(location.search).has('compose'));
+  const pin = (on: boolean) => {
+    setPinned(on);
+    try {
+      localStorage.setItem(PIN_KEY, on ? '1' : '0');
+    } catch {}
+  };
+  const stateRef = useRef<EntryState | null>(null);
+  stateRef.current = state;
+  const live: LivePage = useMemo(
+    () => ({
+      fields: () => {
+        const s = stateRef.current;
+        return s ? { fields: s.fields, event_start: s.event_start, event_end: s.event_end, event_all_day: s.event_all_day } : null;
+      },
+      setFields: ({ fields, ...dates }) => {
+        const s = stateRef.current;
+        if (!s) return;
+        const next = { ...s.fields };
+        for (const [k, v] of Object.entries(fields)) {
+          if (v === null) delete next[k];
+          else next[k] = v;
+        }
+        const updated = { ...s, ...dates, fields: next } as EntryState;
+        stateRef.current = updated;
+        setState(updated);
+        setDirty(true);
+      },
+      content: () => (puckRef.current?.().appState.data.content ?? []) as PuckItem[],
+      apply: (items, prefix, replaceAll) => {
+        const get = puckRef.current;
+        if (!get) return;
+        const { appState, dispatch } = get();
+        const current = appState.data.content as PuckItem[];
+        let next: PuckItem[];
+        if (replaceAll) next = items;
+        else {
+          // In place of the blocks this conversation built before (or at the end).
+          const at = current.findIndex((i) => isComposed(i, prefix));
+          const rest = current.filter((i) => !isComposed(i, prefix));
+          const pos = at >= 0 ? current.slice(0, at).filter((i) => !isComposed(i, prefix)).length : rest.length;
+          next = [...rest.slice(0, pos), ...items, ...rest.slice(pos)];
+        }
+        dispatch({ type: 'setData', data: { ...appState.data, content: next as Data['content'] }, recordHistory: true });
+      },
+      replaceBlock: (id, items) => {
+        const get = puckRef.current;
+        if (!get) return;
+        const { appState, dispatch } = get();
+        dispatch({ type: 'setData', data: { ...appState.data, content: replaceBlock(appState.data.content as PuckItem[], id, items) as Data['content'] }, recordHistory: true });
+      },
+    }),
+    [],
+  );
+
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  /** The version last restored: its id, its content and the content before restoring (to tell if it was undone). */
+  const restoredRef = useRef<{ id: number; json: string; before: string } | null>(null);
+
+  /** Load a saved version into the editor as unsaved changes (undoable; save or publish to keep it). */
+  const restore = (r: RevisionRow) => {
+    const get = puckRef.current;
+    if (!get || !r.content) return;
+    const { appState, dispatch } = get();
+    restoredRef.current = { id: r.id, json: JSON.stringify(r.content.content ?? []), before: JSON.stringify(appState.data.content) };
+    dispatch({ type: 'setData', data: { ...appState.data, content: (r.content.content ?? []) as Data['content'] }, recordHistory: true });
+    const base = stateRef.current;
+    if (base) {
+      const next = r.entry ? { ...base, ...r.entry, status: base.status } : { ...base, title: r.title || base.title, fields: r.fields ?? base.fields };
+      stateRef.current = next;
+      setState(next);
+    }
+    setDirty(true);
+    setStatus(`Restored the version from ${new Date(r.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}: save or publish to keep it`);
+  };
+
+  /** Open the page as it will look, with the editor's current (unsaved) state, in a new tab. */
+  const preview = () => {
+    const data = (puckRef.current?.().appState.data as Data | undefined) ?? dataRef.current!;
+    const payload = mode === 'content' ? { content: data, entry: stateRef.current } : { entry: stateRef.current, template: data.content };
+    const form = document.createElement('form');
+    form.method = 'post';
+    form.action = `/admin/preview/${entryId}/`;
+    form.target = '_blank';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = JSON.stringify(payload);
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+  };
+
+  /** Whether this save keeps a restored version (and whether it was edited since); nothing if the restore was undone. */
+  const restoredNote = (data: Data) => {
+    const r = restoredRef.current;
+    if (!r) return {};
+    const now = JSON.stringify(data.content);
+    if (now === r.before) return {};
+    return { restoredFrom: r.id, restoredEdited: now !== r.json };
+  };
+
+  /** Accessibility marks, saved as they are made: on the template being edited, else on the entry. */
+  const marksOnly = useRef(false);
+  const saveA11yMarks = async (marks: Record<string, unknown>): Promise<string | null> => {
+    const target = template ? { kind: template.kind, slug: template.slug } : mode === 'layout' ? { kind: 'template', slug: templateSlug } : { entryId };
+    const res = await fetch('/api/admin/a11y', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...target, marks }) }).catch(() => null);
+    return res?.ok ? null : res ? await res.text() : 'no connection';
+  };
+
+  /** save: templates and layout mode (apply at once); draft / publish / unpublish / discard: pages. */
+  const save = async (action: 'save' | 'draft' | 'publish' | 'unpublish' | 'discard') => {
+    let data = (puckRef.current?.().appState.data as Data | undefined) ?? dataRef.current!;
+    // A template's Page content blocks each show their own area: a repeat gets the next free name.
+    if (template || mode === 'layout') {
+      const named = uniqueAreas(data.content as PuckItem[]);
+      if (named !== data.content) {
+        data = { ...data, content: named as Data['content'] };
+        puckRef.current?.().dispatch({ type: 'setData', data });
+      }
+    }
+    // What this save sends, to tell afterwards whether anything changed while it ran.
+    const sentContent = docJson(data);
+    const sentEntry = JSON.stringify(stateRef.current);
+    const dirtyBefore = dirty;
+    setSaving(true);
+    setStatus(action === 'publish' ? 'Publishing…' : action === 'discard' ? 'Discarding…' : 'Saving…');
+    // Linked patterns are stored as a reference plus this page's content changes.
+    const { data: stored, detached } = await collapseLinkedPatterns(data);
+    const body = template
+      ? { kind: template.kind, slug: template.slug, content: stored }
+      : mode === 'content'
+        ? action === 'discard' || action === 'unpublish' ? { action } : { action, content: stored, entry: stateRef.current, ...restoredNote(stored) }
+        : { action: 'save', entry: stateRef.current, template: { kind: 'template', slug: templateSlug, content: stored } };
+    const url = template ? '/api/admin/templates' : `/api/admin/entries/${entryId}`;
+    const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    setSaving(false);
+    if (!res.ok) return setStatus(`Not saved: ${await res.text()}`);
+    if (action === 'discard') return location.reload();
+    const r = await res.json().catch(() => ({}));
+    const nowData = (puckRef.current?.().appState.data as Data | undefined) ?? dataRef.current!;
+    const changedSince = docJson(nowData) !== sentContent || JSON.stringify(stateRef.current) !== sentEntry;
+    if (r.status) setLiveStatus(r.status);
+    // The address the server stored (a placeholder or empty one becomes one from the title).
+    if (r.slug && stateRef.current && r.slug !== stateRef.current.slug) {
+      const next = { ...stateRef.current, slug: r.slug };
+      stateRef.current = next;
+      setState(next);
+    }
+    if (mode === 'content' && !template) setPending(r.pending ? new Date().toISOString() : null);
+    // Unpublish sends no content: edits not saved before stay unsaved. Otherwise what was sent is saved,
+    // and anything changed while the save ran is not.
+    if (action === 'unpublish') setDirty(dirtyBefore);
+    else {
+      savedJson.current = sentContent;
+      setDirty(changedSince);
+    }
+    restoredRef.current = null;
+    setRevisionsVersion((v) => v + 1);
+    const time = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const note = detached ? ` ${detached === 1 ? 'A linked pattern whose blocks were changed was' : `${detached} linked patterns whose blocks were changed were`} saved as an ordinary copy.` : '';
+    setStatus((action === 'publish' ? `Published ${time}` : action === 'unpublish' ? `Unpublished ${time}` : action === 'draft' ? `Draft saved ${time}` : `Saved ${time}`) + note);
+  };
+
+  if (error) return <p className="p-8 text-[#c4592a]">{error}</p>;
+  if (!initial || !env) return <p className="p-8 text-[#64748b]">Loading editor…</p>;
+
+  const viewUrl = entry && settingsRef.current.site?.front_page_id !== entry.id ? permalink(entry) : '/';
+  const titleText = entry ? state?.title || '(untitled)' : `${template?.kind === 'part' ? 'Template part' : template?.kind === 'pattern' ? 'Pattern' : 'Template'}: ${template?.slug}`;
+  return (
+    <div className="flex h-screen">
+    <div className="flex min-w-0 flex-1 flex-col">
+    {/* Page title and address, above Puck (outside its header, so its toolbar keeps its own layout). */}
+    <div className="flex shrink-0 items-baseline gap-3 border-b border-[#1a1a2e]/10 bg-white px-4 py-2">
+      <a href={entry ? `/admin/?type=${entry.type}` : '/admin/templates/'} className="text-xs text-[#64748b] hover:text-[#b87333]" title="Back to the list">
+        ←
+      </a>
+      <h1 className="truncate font-[Fraunces,Georgia,serif] text-lg">{titleText}</h1>
+      {entry && <span className="truncate font-mono text-xs text-[#64748b]">{viewUrl}</span>}
+    </div>
+    <div className="cms-editor-frame relative min-h-0 flex-1">
+    <EnvContext.Provider value={env}>
+      <RevisionsContext.Provider value={{ entryId: entry?.id ?? null, version: revisionsVersion, contentMode: mode === 'content' && !!entry, restore }}>
+      <A11yMarksContext.Provider value={{ save: saveA11yMarks, quiet: () => (marksOnly.current = true) }}>
+      <ViewContext.Provider value={{ env, chrome, form: { type: entry?.type ?? '', state, setState: (v) => { stateRef.current = v; setState(v); setDirty(true); }, templates } }}>
+      <Puck
+        config={config}
+        data={initial}
+        onChange={onChange}
+        onPublish={() => save(entry && mode === 'content' ? 'publish' : 'save')}
+        plugins={PLUGINS}
+        iframe={IFRAME}
+        // The title and address are on the bar above the editor; Puck falls back to the page title when
+        // this is empty, so it gets an invisible one.
+        headerTitle={'\u200b'}
+        overrides={{
+          iframe: CanvasFrame,
+          headerActions: ({ children }) => (
+            <>
+              {mode === 'layout' && entry && <span className="max-w-xs text-xs text-[#64748b]">Editing this page's template ({templateSlug}); changes apply to every page using it.</span>}
+              <PuckBridge into={puckRef} onSelect={setSelection} />
+              {entry && mode === 'content' && (
+                <span className="flex items-center gap-2 whitespace-nowrap text-xs text-[#64748b]">
+                  <span className={`rounded-full px-2 py-0.5 ${liveStatus === 'publish' ? 'bg-[#6db56d]/15 text-[#3f7a3f]' : 'bg-[#64748b]/10'}`}>{liveStatus === 'publish' ? 'Published' : 'Draft'}</span>
+                  {liveStatus === 'publish' && pending && !dirty && <span title={`Saved ${new Date(pending).toLocaleString()}`}>Unpublished changes</span>}
+                  {dirty && <span className="text-[#b87333]">{status.startsWith('Restored') ? status : 'Unsaved changes'}</span>}
+                  {!dirty && status && <span>{status}</span>}
+                  {liveStatus === 'publish' && pending && (
+                    <button type="button" className="underline hover:text-[#c4592a]" onClick={() => confirm('Discard the unpublished changes and go back to the live page?') && save('discard')}>
+                      Discard changes
+                    </button>
+                  )}
+                  {liveStatus === 'publish' && (
+                    <button type="button" className="underline hover:text-[#c4592a]" onClick={() => confirm('Take this page off the site? It stays here as a draft.') && save('unpublish')}>
+                      Unpublish
+                    </button>
+                  )}
+                </span>
+              )}
+              {!(entry && mode === 'content') && status && <span className="text-xs text-[#64748b]">{status}</span>}
+              {entry && mode === 'content' && (
+                <button type="button" onClick={() => setComposeOpen((v) => !v)} aria-pressed={composeOpen} className={`whitespace-nowrap rounded border px-3 py-1.5 text-sm ${composeOpen ? 'border-[#b87333] text-[#b87333]' : 'border-[#1a1a2e]/15 hover:border-[#b87333] hover:text-[#b87333]'}`}>
+                  Compose
+                </button>
+              )}
+              {entry && (
+                <button type="button" onClick={preview} className="whitespace-nowrap text-sm text-[#64748b] hover:text-[#b87333]" title="See the page as it will look, including unsaved changes">
+                  Preview
+                </button>
+              )}
+              {entry && liveStatus === 'publish' && <a href={viewUrl} target="_blank" className="whitespace-nowrap text-sm text-[#64748b] hover:text-[#b87333]">View live</a>}
+              {entry && (
+                <form method="post" action="/api/admin/entries" onSubmit={(e) => dirty && !window.confirm('The copy is made from the saved page; your unsaved changes won\'t be in it. Duplicate anyway?') && e.preventDefault()}>
+                  <input type="hidden" name="duplicate" value={entry.id} />
+                  <button className="whitespace-nowrap text-sm text-[#64748b] hover:text-[#b87333]" title="Make a draft copy of this page and open it">
+                    Duplicate
+                  </button>
+                </form>
+              )}
+              {entry && mode === 'content' ? (
+                <>
+                  <button type="button" disabled={saving} onClick={() => save('draft')} className="whitespace-nowrap rounded border border-[#1a1a2e]/20 px-3 py-1.5 text-sm hover:border-[#b87333] hover:text-[#b87333] disabled:opacity-50" title={liveStatus === 'publish' ? 'Keep your changes without changing the live page' : 'Save without publishing'}>
+                    Save draft
+                  </button>
+                  <button type="button" disabled={saving} onClick={() => save('publish')} className="whitespace-nowrap rounded bg-[#1a1a2e] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#b87333] disabled:opacity-50">
+                    {liveStatus === 'publish' ? 'Publish changes' : 'Publish'}
+                  </button>
+                </>
+              ) : (
+                <button type="button" disabled={saving} onClick={() => save('save')} className="whitespace-nowrap rounded bg-[#1a1a2e] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#b87333] disabled:opacity-50" title="Templates have no drafts: changes apply to every page using them">
+                  Save &amp; apply
+                </button>
+              )}
+            </>
+          ),
+        }}
+      />
+      </ViewContext.Provider>
+      </A11yMarksContext.Provider>
+      </RevisionsContext.Provider>
+    </EnvContext.Provider>
+    </div>
+    </div>
+    {entry && mode === 'content' && composeOpen && (
+      <aside className="h-screen w-[400px] shrink-0 border-l border-[#1a1a2e]/10" aria-label="Compose with Claude">
+        <Composer entryId={entry.id} live={live} selection={selection} pinned={pinned} onPin={pin} onClose={() => setComposeOpen(false)} />
+      </aside>
+    )}
+    </div>
+  );
+}
+
+const usePuckSelector = createUsePuck();
+
+/** The document as saved: each linked pattern collapsed to its reference and this page's content changes. */
+async function collapseLinkedPatterns(data: Data): Promise<{ data: Data; detached: number }> {
+  const cache = new Map<string, PuckItem[] | null>();
+  const patternItems = async (slug: string) => {
+    if (!cache.has(slug)) {
+      const { data: row } = await browserClient().from('templates').select('content').eq('kind', 'pattern').eq('slug', slug).maybeSingle();
+      cache.set(slug, ((row?.content as any)?.content as PuckItem[] | undefined) ?? null);
+    }
+    return cache.get(slug)!;
+  };
+  const main = await collapseAll(data.content as PuckItem[], patternItems);
+  let detached = main.detached;
+  const props = { ...((data.root?.props ?? {}) as Record<string, unknown>) };
+  for (const [k, v] of Object.entries(props)) {
+    if (!k.startsWith('area-') || !Array.isArray(v)) continue;
+    const r = await collapseAll(v as PuckItem[], patternItems);
+    props[k] = r.items;
+    detached += r.detached;
+  }
+  return { data: { ...data, root: { ...data.root, props }, content: main.items as Data['content'] }, detached };
+}
+
+/** One of the template's other content areas on the page: its blocks, or while it is empty, a label in the spot to drop them. */
+function AreaSlot({ area, Slot }: { area: string; Slot: unknown }) {
+  const count = usePuckSelector((s) => ((s.appState.data.root?.props as Record<string, unknown> | undefined)?.[areaProp(area)] as unknown[] | undefined)?.length ?? 0);
+  if (typeof Slot !== 'function') return null;
+  const S = Slot as (props: Record<string, unknown>) => ReactNode;
+  return (
+    <div className="cms-area">
+      {!count && <div className="cms-area__label">Content area: {area}. Drop blocks here.</div>}
+      <S />
+    </div>
+  );
+}
+
+/** Gives the docked composer (outside Puck's tree) the editor's live data and the selected block. */
+function PuckBridge({ into, onSelect }: { into: { current: ReturnType<typeof useGetPuck> | null }; onSelect: (s: Selection | null) => void }) {
+  into.current = useGetPuck();
+  const selectedId = usePuckSelector((s) => (s.selectedItem?.props as any)?.id as string | undefined);
+  const content = usePuckSelector((s) => s.appState.data.content);
+  useEffect(() => {
+    const found = selectedId ? findBlock(content as PuckItem[], selectedId) : null;
+    onSelect(found ? { item: found.item, top: found.top } : null);
+  }, [selectedId, content]);
+  return null;
+}
+
+/**
+ * Puck's canvas settings. A constant: Puck resets its first undo step to the current state whenever
+ * this object changes, so a new object per render made the first edit impossible to undo.
+ */
+const IFRAME = { enabled: true, syncHostStyles: false, waitForStyles: true };
+
+interface RevisionRow { id: number; created_at: string; action: string | null; title: string; author_id: string | null; content: Data | null; entry: EntryState | null; fields: Record<string, any> | null; restored_from: number | null; restored_edited: boolean | null }
+interface RevisionsApi { entryId: number | null; version: number; contentMode: boolean; restore: (r: RevisionRow) => void }
+const RevisionsContext = createContext<RevisionsApi | null>(null);
+const ACTIONS: Record<string, string> = { draft: 'Draft saved', publish: 'Published', unpublish: 'Unpublished', save: 'Saved' };
+
+/** Left rail: saved versions of this page, newest first, to preview or restore. */
+function RevisionsPanel() {
+  const api = useContext(RevisionsContext);
+  const [rows, setRows] = useState<RevisionRow[] | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!api?.entryId) return;
+    const db = browserClient();
+    db.from('revisions').select('id, created_at, action, title, author_id, content, entry, fields, restored_from, restored_edited').eq('entry_id', api.entryId).order('created_at', { ascending: false }).limit(50)
+      .then(async ({ data }) => {
+        setRows((data ?? []) as RevisionRow[]);
+        const ids = [...new Set((data ?? []).map((r) => r.author_id).filter(Boolean))];
+        if (ids.length) {
+          const { data: people } = await db.from('profiles').select('id, display_name').in('id', ids);
+          setNames(Object.fromEntries((people ?? []).map((p) => [p.id, p.display_name ?? ''])));
+        }
+      });
+  }, [api?.entryId, api?.version]);
+  if (!api?.entryId) return <p className="p-4 text-sm text-[#64748b]">Templates have no revisions.</p>;
+  if (!rows) return <p className="p-4 text-sm text-[#64748b]">Loading…</p>;
+  if (!rows.length) return <p className="p-4 text-sm text-[#64748b]">No saved versions yet. Each Save draft or Publish adds one.</p>;
+  const when = (s: string) => new Date(s).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: SITE_TZ });
+  return (
+    <ol className="divide-y divide-[#1a1a2e]/10 text-sm">
+      {rows.map((r, i) => (
+        <li key={r.id} className="px-3 py-2.5">
+          <div className="flex items-baseline gap-2">
+            <span className="font-medium">{when(r.created_at)}</span>
+            {i === 0 && <span className="text-[11px] text-[#64748b]">latest</span>}
+          </div>
+          <div className="text-xs text-[#64748b]">
+            {ACTIONS[r.action ?? ''] ?? 'Saved'}
+            {r.author_id && names[r.author_id] ? ` by ${names[r.author_id]}` : ''}
+            {r.title ? ` · ${r.title}` : ''}
+          </div>
+          {r.restored_from && (
+            <div className="mt-0.5 text-xs text-[#8a5a1f]">
+              Restored from {(() => {
+                const from = rows.find((x) => x.id === r.restored_from);
+                return from ? when(from.created_at) : 'an earlier version';
+              })()}
+              {r.restored_edited ? ', then edited' : ''}
+            </div>
+          )}
+          <div className="mt-1 flex gap-3 text-xs">
+            <a href={`/admin/preview/${api.entryId}/?revision=${r.id}`} target="_blank" rel="noopener" className="text-[#64748b] underline hover:text-[#b87333]">
+              Preview
+            </a>
+            {api.contentMode && r.content && (
+              <button type="button" className="text-[#64748b] underline hover:text-[#b87333]" onClick={() => api.restore(r)}>
+                Restore
+              </button>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+const REVISIONS_ICON = (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3.5 12a8.5 8.5 0 1 0 2.5-6" />
+    <path d="M3 4v4h4" />
+    <path d="M12 7.5V12l3 2" />
+  </svg>
+);
+const PATTERNS_ICON = (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="3.5" y="3.5" width="17" height="6" rx="1.5" />
+    <rect x="3.5" y="12.5" width="7.5" height="8" rx="1.5" />
+    <rect x="13" y="12.5" width="7.5" height="8" rx="1.5" />
+  </svg>
+);
+const A11Y_ICON = (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <circle cx="12" cy="4.5" r="1.8" />
+    <path d="M4.5 8.5l7.5 1.5 7.5-1.5M12 10v4.5M12 14.5l-3.5 6M12 14.5l3.5 6" />
+  </svg>
+);
+/**
+ * The left rail, top to bottom. Puck lists its own Blocks and Outline first, but a plugin given again
+ * moves to where it appears here.
+ */
+const PLUGINS = [
+  blocksPlugin({ label: 'Blocks' }),
+  { name: 'patterns', label: 'Patterns', icon: PATTERNS_ICON, render: () => <PatternsPanel /> },
+  outlinePlugin({ label: 'Outline' }),
+  { name: 'a11y', label: 'A11y', icon: A11Y_ICON, render: () => <A11yPanel /> },
+  { name: 'revisions', label: 'Revisions', icon: REVISIONS_ICON, render: () => <RevisionsPanel /> },
+];
+
+const PIN_KEY = 'cms-compose-pinned';
+const readPinned = () => {
+  try {
+    return localStorage.getItem(PIN_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
+interface ViewState {
+  env: Env;
+  chrome: PuckItem[];
+  form: { type: string; state: EntryState | null; setState: (v: EntryState) => void; templates: TemplateInfo[] };
+}
+const ViewContext = createContext<ViewState | null>(null);
+
+function ChromeFromContext({ content, slots }: { content: ReactNode; slots?: Record<string, any> }) {
+  const view = useContext(ViewContext);
+  return <Chrome env={view?.env ?? null} chrome={view?.chrome ?? []} content={content} slots={slots} />;
+}
+
+function EntryFormBridge() {
+  const getPuck = useGetPuck();
+  const view = useContext(ViewContext);
+  if (!view?.form.state) return null;
+  const f = view.form;
+  return <EntryForm type={f.type} value={f.state!} onChange={f.setState} templates={f.templates} pageItems={() => getPuck().appState.data.content as any[]} />;
+}
+
+/** Template around the editable content, rendered statically (header, footer, template sections). */
+function Chrome({ env, chrome, content, slots }: { env: Env | null; chrome: PuckItem[]; content: ReactNode; slots?: Record<string, any> }) {
+  if (!env) return null;
+  if (!chrome.length) return <div className="c-page">{content}</div>;
+  const html = renderItems(chrome, { ...env, contentSlot: CONTENT_MARKER });
+  const tree = parse(`<div class="c-page">${html}</div>`, {
+    replace(node: DOMNode) {
+      if (node instanceof Element && node.name === 'cms-content') {
+        // The main area is the page's content; each other area is a slot of the page's root.
+        const area = node.attribs['data-area'] || MAIN_AREA;
+        if (area === MAIN_AREA) return <>{content}</>;
+        const Slot = slots?.[areaProp(area)];
+        return <AreaSlot area={area} Slot={Slot} />;
+      }
+      return undefined;
+    },
+  });
+  return <>{tree}</>;
+}
+
+/** Load the public site's CSS into the canvas iframe (never into the admin UI). */
+/** Puck's iframe override. A stable component: an inline function would remount the canvas styles on every render. */
+function CanvasFrame({ children, document }: { children: ReactNode; document?: Document }) {
+  const env = useContext(EnvContext);
+  return (
+    <CanvasStyles document={document} ctx={env?.ctx ?? null}>
+      {children}
+    </CanvasStyles>
+  );
+}
+
+function CanvasStyles({ document: doc, ctx, children }: { document?: Document; ctx: RenderCtx | null; children: ReactNode }) {
+  // The canvas context is rebuilt after every edit. Stylesheets are set up once per canvas document
+  // (re-adding them on each edit unloaded the site CSS for a moment: the canvas flashed); only the
+  // per-page rules and body classes follow the latest context.
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+  const ready = !!ctx;
+  useEffect(() => {
+    const first = ctxRef.current;
+    if (!doc || !first) return;
+    doc.querySelectorAll('[data-cms]').forEach((n) => n.remove());
+    const add = (el: HTMLElement) => {
+      el.dataset.cms = '1';
+      doc.head.appendChild(el);
+    };
+    // Set below: re-checks positions once a stylesheet has loaded (see `fix`).
+    let restyled = () => {};
+    const link = (href: string) => {
+      const l = doc.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = href;
+      l.addEventListener('load', () => restyled());
+      add(l);
+    };
+    // Third-party widget styles, then the site stylesheet (any block can be added, so load both).
+    for (const href of Object.values(VENDOR_CSS)) link(href);
+    const style = doc.createElement('style');
+    // Puck's drop zones fill their parent's height; a media-text column must keep its own so its text
+    // position (align-self) shows as on the site.
+    style.textContent = '.cms-editor-note{padding:1rem;border:1px dashed #b87333;color:#64748b;font:13px system-ui}.c-media-text__content[data-puck-dropzone]{height:auto}.cms-area{position:relative}.cms-area__label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#64748b;font:13px system-ui;z-index:1}';
+    add(style);
+    link(siteCss);
+    // Layout rules for sections added or changed while editing are created during rendering.
+    const live = doc.createElement('style');
+    add(live);
+    let synced = '';
+    const syncCss = () => {
+      const c = ctxRef.current;
+      if (!c) return;
+      const rules = [...new Set(c.css)].join('');
+      if (rules !== synced) {
+        synced = rules;
+        live.textContent = rules;
+      }
+      const cls = bodyClasses(c.queried);
+      if (doc.body.className !== cls) doc.body.className = cls;
+    };
+    syncCss();
+    const sync = setInterval(syncCss, 300);
+    link('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&family=Work+Sans:wght@300;400;500;600;700&display=swap');
+    // Links inside the canvas must not navigate the editor frame.
+    const stop = (e: Event) => {
+      if ((e.target as HTMLElement).closest?.('a')) e.preventDefault();
+    };
+    doc.addEventListener('click', stop, true);
+
+    // Puck sets inline position:relative on draggable elements; where the site's CSS positions an
+    // element (e.g. absolute card images), let the stylesheet win so the canvas matches the site.
+    const view = doc.defaultView!;
+    // Elements that keep Puck's relative position; remembered so restoring it doesn't re-trigger the
+    // observer below (clearing and restoring are both style mutations).
+    // Decided again whenever a stylesheet loads: before the site's CSS arrives every element looks static.
+    let keep = new WeakSet<HTMLElement>();
+    const fix = (el: HTMLElement) => {
+      if (el.style.position !== 'relative' || keep.has(el)) return;
+      el.style.position = '';
+      if (view.getComputedStyle(el).position === 'static') {
+        keep.add(el);
+        el.style.position = 'relative';
+      }
+    };
+    const scan = () => doc.querySelectorAll<HTMLElement>('[data-puck-component]').forEach(fix);
+    scan();
+    restyled = () => {
+      // Elements kept relative were judged without the site's CSS: let them be judged again.
+      doc.querySelectorAll<HTMLElement>('[data-puck-component]').forEach((el) => keep.has(el) && el.style.position === 'relative' && (el.style.position = ''));
+      keep = new WeakSet<HTMLElement>();
+      doc.querySelectorAll<HTMLElement>('[data-puck-component]').forEach((el) => {
+        if (el.style.position === '' && view.getComputedStyle(el).position === 'static') {
+          keep.add(el);
+          el.style.position = 'relative';
+        }
+      });
+    };
+    const observer = new view.MutationObserver((records) => {
+      for (const r of records) {
+        if (r.type === 'attributes' && r.target instanceof view.HTMLElement && r.target.hasAttribute('data-puck-component')) fix(r.target);
+        if (r.type === 'childList') r.addedNodes.forEach((n) => n instanceof view.HTMLElement && [n, ...n.querySelectorAll<HTMLElement>('[data-puck-component]')].forEach((e) => e.hasAttribute('data-puck-component') && fix(e)));
+      }
+    });
+    observer.observe(doc.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
+    return () => {
+      observer.disconnect();
+      clearInterval(sync);
+      doc.removeEventListener('click', stop, true);
+      doc.querySelectorAll('[data-cms]').forEach((n) => n.remove());
+    };
+  }, [doc, ready]);
+  return <>{children}</>;
+}
+
+export { StaticHtml };

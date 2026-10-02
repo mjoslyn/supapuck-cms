@@ -1,0 +1,75 @@
+@CORE.md
+
+# Working on the core
+
+This repository is cms-core: the CMS (everything outside `src/site/`) and an example site in
+`src/site/` (Example Town). Real sites are forks with this repository as their `upstream` remote; the
+first is the Ellicottville Chamber site (`../evl-chamber`, https://ellicottvilleny.robotofthefuture.com).
+`CORE.md`, imported above, is the reference for how the core works, and every site's `AGENTS.md` imports
+it too. This file is about working here.
+
+## Keep the docs current
+
+Update the docs in the same commit as the change, not afterwards:
+
+- `CORE.md`: what the core does and where (features, data, APIs, blocks, settings, rules). Sites read
+  it, so describe the core, never a particular site.
+- `AGENTS.md` (this file): how to work on the core, its checklists and open work.
+- `README.md`: setting up a new site and taking core updates.
+- `docs-site/`: the documentation site (Starlight, published to GitHub Pages by
+  `.github/workflows/docs.yml` when it changes on `main`). Preview with `cd docs-site && npm install && npx astro dev`.
+
+## Where things go
+
+- Nothing site-specific in core code: no site's types, taxonomies, URLs, names, palette names or
+  classes. Core code reads a site only through `src/lib/site` (config, render and editor extensions).
+  If a site needs something general (a filter, a map, a menu), build it as a core feature with
+  settings, and move the site onto it.
+- Sites keep their own blocks, patterns and templates where those are their design; only general
+  features belong in the core.
+- The example site follows the same layout as every site (`render/c/`, `lib/`, `pages/api/`,
+  `styles/`, `public/`, `scripts/`, entry points at the top) and must keep working with every change.
+- Styles: `src/styles/site.css` and its imports, using role tokens only (`--color-text`, `-muted`,
+  `-accent`, `-dark`, `-on-dark`, `-surface`...), never a site's palette names.
+
+### Adding a block
+
+1. Renderer in `src/render/c/` (a string of HTML; `c-*` classes), added to `src/render/blocks/index.ts`.
+2. Data it needs: a `case` in `walk()` in `src/render/prepare.ts` (load into `ctx.data`, add page
+   scripts to `ctx.scripts` / `ctx.headScripts`, vendor CSS through `ctx.assets`).
+3. Editor: panel in `CONTENT_PANELS` and label in `CONTENT_LABELS` (`src/puck/panels.tsx`), its
+   category in `buildConfig` (`src/puck/config.tsx`); containers go in `CONTENT_CONTAINERS`.
+4. Browser behaviour: a script in `public/assets/js/` that enhances the server markup (the page works
+   without it).
+5. Styles in `src/styles/site.css`; a section in `CORE.md`.
+
+## Workflow
+
+1. Change and commit here. `npm run check` (TypeScript) must pass.
+2. Test on the example site, and for anything that real content exercises, in a site: in
+   `../evl-chamber`, `git fetch <path to this repository> main && git merge --no-commit FETCH_HEAD`,
+   restart its dev server if config or dependencies changed, and test there.
+3. Push cms-core (it deploys nothing), then in the site `git fetch upstream && git merge upstream/main`
+   and commit; a site keeps its own `AGENTS.md`, `README.md`, `.env.example` and `supabase/config.toml`
+   when they conflict. The site's owner pushes the site, which deploys it.
+4. Stored content changes and how to check changes: `CORE.md` (Changing stored content, Checking
+   changes).
+
+## Local setup
+
+- `npx supabase start` (ports 5652x; sites use their own, Ellicottville 5642x) and
+  `npx astro dev --background` (http://localhost:4321).
+- Netlify's edge-function emulation is off under `astro dev` (`astro.config.mjs`): its Deno runtime
+  ran out of memory on the editor's image requests.
+- After merges that change dependencies, restart the dev server: stale Vite dependency caches show as
+  "Outdated Optimize Dep" and islands that don't hydrate.
+
+## Commits
+
+Concise and factual: what changed, why, and any measurements; no editorial framing.
+
+## Open work
+
+- Core tests that run on the example site's content (several e2e scripts assume a site's content).
+- One fresh starting migration for new sites, so they don't inherit the first site's import
+  migrations (`…0006_forms_sequence`, `…0007_move_legacy_paths`, `…0010_own_names`).

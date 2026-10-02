@@ -1,0 +1,67 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { mediaUrl } from '../../../lib/media/image';
+import MediaDetail from '../../../admin/MediaDetail';
+
+const q = (Astro.url.searchParams.get('q') ?? '').trim();
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') ?? 1));
+const per = 60;
+let query = Astro.locals.db.from('media').select('id, path, mime_type, width, height, alt, title, sizes, created_at, focal_point, formats', { count: 'exact' }).order('created_at', { ascending: false }).order('id', { ascending: false });
+if (q) query = query.or(`title.ilike.%${q}%,path.ilike.%${q}%,alt.ilike.%${q}%`);
+const { data, count, error } = await query.range((page - 1) * per, page * per - 1);
+if (error) throw error;
+const pages = Math.ceil((count ?? 0) / per);
+const link = (p: number) => `?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
+---
+<Admin title="Media">
+  <div class="flex items-end justify-between gap-6">
+    <div>
+      <h1 class="font-[Fraunces,Georgia,serif] text-3xl font-normal">Media</h1>
+      <p class="mt-1 text-sm text-[#64748b]">{count ?? 0} files</p>
+    </div>
+    <form id="upload" class="flex items-center gap-2">
+      <input type="file" name="file" accept="image/*" required class="text-sm" />
+      <button class="rounded-sm bg-[#1a1a2e] px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">Upload</button>
+    </form>
+  </div>
+  <form class="mt-6">
+    <input name="q" value={q} placeholder="Search by name or alt text" class="w-80 rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 text-sm outline-none focus:border-[#b87333]" />
+  </form>
+  <ul class="mt-4 grid grid-cols-6 gap-3">
+    {(data ?? []).map((m) => (
+      <li class="overflow-hidden rounded bg-white shadow-[0_0_0_1px_rgba(26,26,46,0.08)]">
+        <button type="button" data-media={m.id} class="block w-full cursor-pointer text-left">
+          {m.mime_type.startsWith('image/') ? (
+            <img src={mediaUrl((m.sizes?.thumbnail ?? m.sizes?.medium ?? m).path)} alt={m.alt} loading="lazy" class="aspect-square w-full object-cover" />
+          ) : (
+            <div class="flex aspect-square items-center justify-center bg-[#f5f3f0] text-xs text-[#64748b]">{m.mime_type}</div>
+          )}
+        </button>
+        <div class="p-2">
+          <p class="truncate text-xs" title={m.path}>{m.path.split('/').pop()}</p>
+          <p class="text-[11px] text-[#64748b]">{m.width && m.height ? `${m.width} × ${m.height}` : m.mime_type}{Object.keys(m.formats ?? {}).length ? ' · AVIF, WebP' : ''}{m.focal_point ? ' · focal point' : ''}</p>
+        </div>
+      </li>
+    ))}
+  </ul>
+  {pages > 1 && (
+    <nav class="mt-6 flex gap-2 text-sm">
+      {page > 1 && <a href={link(page - 1)} class="rounded border border-[#1a1a2e]/15 bg-white px-3 py-1 hover:border-[#b87333]">Previous</a>}
+      <span class="px-2 py-1 text-[#64748b]">Page {page} of {pages}</span>
+      {page < pages && <a href={link(page + 1)} class="rounded border border-[#1a1a2e]/15 bg-white px-3 py-1 hover:border-[#b87333]">Next</a>}
+    </nav>
+  )}
+  <MediaDetail client:load />
+  <script>
+    for (const b of document.querySelectorAll<HTMLButtonElement>('[data-media]')) {
+      b.addEventListener('click', () => window.dispatchEvent(new CustomEvent('cms:media-open', { detail: Number(b.dataset.media) })));
+    }
+    document.getElementById('upload')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget as HTMLFormElement;
+      const res = await fetch('/api/admin/media', { method: 'POST', body: new FormData(form) });
+      if (res.ok) location.reload();
+      else alert(await res.text());
+    });
+  </script>
+</Admin>

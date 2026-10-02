@@ -1,0 +1,10 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import FormBuilder from '../../../forms/FormBuilder';
+
+const id = Number(Astro.params.id);
+if (!id) return Astro.redirect('/admin/forms/');
+---
+<Admin title="Form" wide>
+  <FormBuilder client:only="react" formId={id} />
+</Admin>

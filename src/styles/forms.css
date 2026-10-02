@@ -1,0 +1,202 @@
+/* Forms (src/render/forms/form.ts). */
+.c-form {
+  --form-border: rgba(26, 26, 46, 0.22);
+  --form-error: #b42318;
+  max-width: 100%;
+}
+.c-form__title {
+  margin: 0 0 0.5rem;
+}
+.c-form__desc {
+  margin: 0 0 1.5rem;
+  color: var(--color-muted);
+}
+.c-form__fields {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 1.5rem 1rem;
+}
+.c-field {
+  grid-column: span 12;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+@media (min-width: 640px) {
+  .c-field.span-9 { grid-column: span 9; }
+  .c-field.span-8 { grid-column: span 8; }
+  .c-field.span-6 { grid-column: span 6; }
+  .c-field.span-4 { grid-column: span 4; }
+  .c-field.span-3 { grid-column: span 3; }
+}
+.c-field[hidden] {
+  display: none;
+}
+.c-field__label {
+  display: block;
+  margin: 0 0 0.375rem;
+  padding: 0;
+  color: var(--color-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.c-field__req {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+.c-field__desc {
+  margin: 0.375rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+.c-field__label + .c-field__desc {
+  margin: 0 0 0.5rem;
+}
+.c-field__error {
+  margin: 0.375rem 0 0;
+  color: var(--form-error);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.c-field__count {
+  margin: 0.25rem 0 0;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  text-align: right;
+}
+.c-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--form-border);
+  border-radius: 4px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.c-input::placeholder {
+  color: #94a3b8;
+}
+.c-input:hover {
+  border-color: rgba(26, 26, 46, 0.4);
+}
+.c-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(184, 115, 51, 0.2);
+  outline: none;
+}
+textarea.c-input {
+  min-height: 9rem;
+  resize: vertical;
+}
+select.c-input {
+  appearance: none;
+  padding-right: 2.5rem;
+  background: var(--color-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.6' fill='none'/%3E%3C/svg%3E") no-repeat right 0.9rem center;
+}
+.has-error .c-input,
+.c-input[aria-invalid='true'] {
+  border-color: var(--form-error);
+}
+.c-choices {
+  display: grid;
+  gap: 0.5rem;
+}
+.c-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.c-choice input {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0.15rem 0 0;
+  accent-color: var(--color-accent);
+}
+.c-field__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.75rem;
+}
+.c-subfield__label {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+}
+.c-form__section {
+  margin: 1rem 0 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(26, 26, 46, 0.12);
+  font-size: var(--text-x-large);
+}
+.c-field.is-hp {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.c-form__footer {
+  margin-top: 2rem;
+}
+.c-form .c-form__submit {
+  width: auto;
+  min-width: 12rem;
+  cursor: pointer;
+}
+.c-form__errors {
+  margin: 0 0 1.5rem;
+  padding: 0.875rem 1rem;
+  border-left: 4px solid var(--form-error);
+  background: #fef3f2;
+  color: var(--form-error);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.c-form__confirmation {
+  padding: 1.5rem 1.75rem;
+  border-left: 4px solid var(--color-accent);
+  background: var(--color-surface-alt);
+  font-size: 1.0625rem;
+}
+.c-form__confirmation > :first-child {
+  margin-top: 0;
+}
+.c-form__confirmation > :last-child {
+  margin-bottom: 0;
+}
+.c-form [data-focus]:focus {
+  outline: none;
+}
+@media (min-width: 782px) {
+  .c-form.is-labels-left .c-field:not(.is-section):not(.is-html) {
+    display: grid;
+    grid-template-columns: 30% 1fr;
+    column-gap: 1.5rem;
+    align-items: start;
+  }
+  .c-form.is-labels-left .c-field > :not(.c-field__label) {
+    grid-column: 2;
+  }
+  .c-form.is-labels-left .c-field__label {
+    padding-top: 0.75rem;
+  }
+}
+.c-field.is-hidden-input {
+  display: none !important;
+}

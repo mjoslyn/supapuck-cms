@@ -1,0 +1,20 @@
+/* Tailwind for the admin. No preflight. */
+@import 'tailwindcss/theme.css';
+@import 'tailwindcss/utilities.css';
+
+@theme {
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Work Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --text-small: 0.875rem;
+  --text-medium: 1rem;
+  --text-large: 1.125rem;
+  --text-x-large: 1.5rem;
+  --text-xx-large: 2rem;
+  --text-heading-2: 2.25rem;
+  --text-heading-1: 3rem;
+  --text-hero: 4rem;
+
+  --container-content: 720px;
+  --container-wide: 1280px;
+}

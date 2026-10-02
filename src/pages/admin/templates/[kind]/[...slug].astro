@@ -1,0 +1,23 @@
+---
+import { SITE_TZ, site } from '../../../../lib/site';
+import '../../../../styles/tailwind.css';
+import '../../../../styles/admin.css';
+import Editor from '../../../../puck/Editor';
+
+const kind = (['part', 'pattern'].includes(Astro.params.kind!) ? Astro.params.kind : 'template') as 'template' | 'part' | 'pattern';
+const slug = Astro.params.slug!;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <script is:inline define:vars={{ siteTz: SITE_TZ }}>window.__siteTz = siteTz;</script>
+    <title>{slug} · {site.name} admin</title>
+  </head>
+  <body class="h-screen overflow-hidden font-[Work_Sans,system-ui,sans-serif]">
+    <a href="/admin/templates/" class="fixed bottom-3 left-3 z-[2000] rounded bg-white px-3 py-1.5 text-xs text-[#64748b] shadow hover:text-[#b87333]">Back to templates</a>
+    <Editor client:only="react" template={{ kind, slug }} />
+  </body>
+</html>

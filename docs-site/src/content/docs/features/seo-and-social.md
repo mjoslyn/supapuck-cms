@@ -1,0 +1,36 @@
+---
+title: SEO and social
+description: Per-entry SEO settings, meta tags, generated descriptions and social profiles.
+sidebar:
+  order: 8
+---
+
+## Entry SEO
+
+An entry's SEO settings live in `fields.seo` (`src/lib/seo.ts`; `seo` is a reserved field key):
+
+- search title
+- meta description
+- share image (a media id)
+- noindex
+
+The entry settings' SEO section (`src/puck/SeoForm.tsx`) shows lengths and a search result preview.
+**Generate** asks Claude (`POST /api/admin/seo`, `ANTHROPIC_SEO_MODEL`, default Haiku 4.5) for text
+from the page as it is in the editor.
+
+Compose includes `seo` in every `build_page` and writes it, marked `generated`, on each build until
+someone edits it by hand.
+
+## Meta tags
+
+`src/render/meta.ts` writes the head tags: description, canonical, robots, Open Graph and Twitter
+card. They fall back to the excerpt, the featured image and the site's default share image. The home
+page also gets Organization structured data, with the social profiles as `sameAs`.
+
+## Social profiles
+
+**Settings > Social** keeps the site's profiles (`settings.site.social`: network and URL;
+`src/lib/social/links.ts`) and the default share image (`share_image`).
+
+The `social-links` block shows the profiles as icons (`src/lib/social/icons.ts`, Simple Icons paths,
+CC0), optionally with names.

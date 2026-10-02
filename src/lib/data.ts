@@ -1,0 +1,309 @@
+// Per-request data loader with caches. Everything a page needs is fetched here before rendering,
+// because the block renderers are synchronous.
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Data } from '@puckeditor/core';
+import { ENTRY_COLUMNS, type Entry, type Media, type Term } from './types';
+import { RECURRENCE_KEY, expandEntry, defaultHorizon } from './recurrence';
+import type { FormRow } from './forms/types';
+import { allRows } from './rows';
+import { uniqueAreas } from './content/areas';
+
+/** Ids in groups small enough for one `in` filter (and one response). */
+const chunks = (ids: number[], size = 200) => Array.from({ length: Math.ceil(ids.length / size) }, (_, i) => ids.slice(i * size, (i + 1) * size));
+
+export interface QueryArgs {
+  postType: string | string[];
+  perPage: number;
+  offset?: number;
+  page?: number;
+  order?: 'asc' | 'desc';
+  /** `include`: the order of `include` (hand-picked entries). */
+  orderBy?: 'date' | 'title' | 'menu_order' | 'menu_order_title' | 'rand' | 'event_start' | 'modified' | 'include' | 'relevance';
+  search?: string;
+  exclude?: number[];
+  include?: number[];
+  /** taxonomy -> term ids (our ids) */
+  terms?: Record<string, number[]>;
+  parents?: number[];
+  upcoming?: boolean;
+  /** Only entries marked featured (fields.featured); e.g. an unfiltered member directory. */
+  featuredOnly?: boolean;
+}
+
+export interface QueryResult {
+  ids: number[];
+  total: number;
+  pages: number;
+}
+
+export class Loader {
+  entries = new Map<number, Entry>();
+  media = new Map<number, Media>();
+  terms = new Map<number, Term>();
+  private termsLoaded = false;
+  private settingsCache?: Record<string, any>;
+  private templates = new Map<string, Data | null>();
+  private recurring?: Promise<boolean>;
+  private formsCache?: Promise<FormRow[]>;
+
+  constructor(public db: SupabaseClient, public now = new Date()) {}
+
+  async settings(): Promise<Record<string, any>> {
+    if (!this.settingsCache) {
+      const { data, error } = await this.db.from('settings').select('key, value');
+      if (error) throw error;
+      this.settingsCache = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]));
+    }
+    return this.settingsCache!;
+  }
+
+  async allTerms(): Promise<Term[]> {
+    if (!this.termsLoaded) {
+      const { data, error } = await allRows(this.db.from('terms').select('*').order('id'));
+      if (error) throw error;
+      for (const t of data ?? []) this.terms.set(t.id, t);
+      this.termsLoaded = true;
+    }
+    return [...this.terms.values()];
+  }
+
+  async termById(id: number) {
+    return (await this.allTerms()).find((t) => t.id === id);
+  }
+
+  async termBySlug(taxonomy: string, slug: string) {
+    return (await this.allTerms()).find((t) => t.taxonomy === taxonomy && t.slug === slug);
+  }
+
+  async template(kind: 'template' | 'part' | 'pattern' | 'navigation', slug: string): Promise<Data | null> {
+    const key = `${kind}:${slug}`;
+    if (!this.templates.has(key)) {
+      const { data, error } = await this.db.from('templates').select('content').eq('kind', kind).eq('slug', slug).maybeSingle();
+      if (error) throw error;
+      let doc = (data?.content as Data) ?? null;
+      // Each Page content block shows its own area, even in a template saved before that was enforced.
+      if (doc && kind === 'template' && Array.isArray(doc.content)) doc = { ...doc, content: uniqueAreas(doc.content as any[]) as Data['content'] };
+      this.templates.set(key, doc);
+    }
+    return this.templates.get(key)!;
+  }
+
+  private remember(rows: any[]) {
+    for (const r of rows) {
+      const e = r as Entry & { entry_terms?: { term_id: number; sort: number }[] };
+      if (e.entry_terms) {
+        e.term_ids = e.entry_terms.sort((a, b) => a.sort - b.sort).map((t) => t.term_id);
+        delete e.entry_terms;
+      }
+      this.entries.set(e.id, { ...this.entries.get(e.id), ...e });
+    }
+  }
+
+  async entry(type: string | string[], slug: string, withContent = true): Promise<Entry | null> {
+    const cols = `${ENTRY_COLUMNS}${withContent ? ', content' : ''}, entry_terms(term_id, sort)`;
+    let q = this.db.from('entries').select(cols).eq('slug', slug).eq('status', 'publish');
+    q = Array.isArray(type) ? q.in('type', type) : q.eq('type', type);
+    const { data, error } = await q.limit(1).maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    this.remember([data]);
+    return this.entries.get((data as any).id)!;
+  }
+
+  async entryById(id: number, withContent = true): Promise<Entry | null> {
+    const cached = this.entries.get(id);
+    if (cached && (!withContent || cached.content !== undefined)) return cached;
+    const { data, error } = await this.db
+      .from('entries')
+      .select(`${ENTRY_COLUMNS}${withContent ? ', content' : ''}, entry_terms(term_id, sort)`)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) this.remember([data]);
+    return this.entries.get(id) ?? null;
+  }
+
+  async entriesByIds(ids: number[]): Promise<Entry[]> {
+    const need = [...new Set(ids.filter((id) => id && !this.entries.has(id)))];
+    for (const chunk of chunks(need)) {
+      const { data, error } = await this.db.from('entries').select(`${ENTRY_COLUMNS}, entry_terms(term_id, sort)`).in('id', chunk);
+      if (error) throw error;
+      this.remember(data ?? []);
+    }
+    return ids.map((id) => this.entries.get(id)).filter(Boolean) as Entry[];
+  }
+
+  /** Load media rows (featured images, image fields) by id. */
+  async loadMedia(ids: unknown[]) {
+    const need = [...new Set(ids.map(Number).filter((id) => id > 0 && !this.media.has(id)))];
+    for (const chunk of chunks(need)) {
+      const { data, error } = await this.db.from('media').select('*').in('id', chunk);
+      if (error) throw error;
+      for (const m of (data ?? []) as Media[]) this.media.set(m.id, m);
+    }
+  }
+
+  /** A loaded media row from an id as fields store it (number or numeric string). */
+  mediaById(id: unknown): Media | undefined {
+    return this.media.get(Number(id));
+  }
+
+  /** Published-entry counts per term (to hide empty terms). */
+  async termCounts(taxonomy: string): Promise<Map<number, number>> {
+    const ids = (await this.allTerms()).filter((t) => t.taxonomy === taxonomy).map((t) => t.id);
+    const { data, error } = await allRows(this.db.from('entry_terms').select('entry_id, term_id, entries!inner(status)').in('term_id', ids).eq('entries.status', 'publish').order('entry_id').order('term_id'));
+    if (error) throw error;
+    const counts = new Map<number, number>();
+    for (const r of data ?? []) counts.set(r.term_id, (counts.get(r.term_id) ?? 0) + 1);
+    return counts;
+  }
+
+  async query(args: QueryArgs): Promise<QueryResult> {
+    const perPage = Math.max(1, args.perPage || 10);
+    const page = Math.max(1, args.page ?? 1);
+    const offset = (args.offset ?? 0) + (page - 1) * perPage;
+    const types = Array.isArray(args.postType) ? args.postType : [args.postType];
+    // Each taxonomy constraint must match (AND across taxonomies, IN within one). Matching ids are
+    // looked up separately so results still carry all their terms (for post classes, post-terms).
+    let matchIds: number[] | null = null;
+    for (const ids of Object.values(args.terms ?? {})) {
+      if (!ids.length) continue;
+      const { data, error } = await allRows(this.db.from('entry_terms').select('entry_id, term_id').in('term_id', ids).order('entry_id').order('term_id'));
+      if (error) throw error;
+      const set = new Set((data ?? []).map((r) => r.entry_id));
+      matchIds = matchIds ? matchIds.filter((id) => set.has(id)) : [...set];
+    }
+    if (matchIds && !matchIds.length) return { ids: [], total: 0, pages: 0 };
+    const select = `${ENTRY_COLUMNS}, entry_terms(term_id, sort)${args.orderBy === 'relevance' ? ', body_text' : ''}`;
+
+    let q = this.db.from('entries').select(select, { count: 'exact' }).eq('status', 'publish').in('type', types);
+    if (matchIds) q = q.in('id', matchIds);
+    // Search: every word must appear in the title, excerpt or text.
+    for (const word of (args.search ?? '').split(/\s+/).filter(Boolean)) {
+      const like = `%${word.replace(/[%_,()]/g, ' ')}%`;
+      q = q.or(`title.ilike.${like},excerpt.ilike.${like},body_text.ilike.${like}`);
+    }
+    if (args.featuredOnly) q = q.eq('fields->>featured', 'true');
+    if (args.exclude?.length) q = q.not('id', 'in', `(${args.exclude.join(',')})`);
+    if (args.include?.length) q = q.in('id', args.include);
+    if (args.parents?.length) q = q.in('parent_id', args.parents);
+    // Search lists a recurring event once (its page leads to the next occurrence), ranked (relevance).
+    if (args.orderBy === 'relevance') return this.queryRanked(q, args, perPage, offset);
+    if (types.includes('event') && (await this.hasRecurring())) return this.queryExpanded(q, args, perPage, offset);
+    if (args.upcoming) q = q.gte('event_start', this.now.toISOString());
+
+    const orderBy = args.upcoming ? 'event_start' : args.orderBy ?? 'date';
+    const ascending = args.upcoming ? true : (args.order ?? 'desc') === 'asc';
+    const picked = orderBy === 'include' && args.include?.length;
+    if (orderBy !== 'rand' && !picked) {
+      if (orderBy === 'menu_order_title') q = q.order('menu_order', { ascending }).order('title', { ascending });
+      else {
+        const col = ({ date: 'published_at', modified: 'updated_at', title: 'title', menu_order: 'menu_order', event_start: 'event_start' } as Record<string, string>)[orderBy] ?? 'published_at';
+        q = q.order(col, { ascending });
+      }
+    }
+    // MySQL resolves ties in insertion (ID) order even for DESC sorts.
+    q = q.order('id', { ascending: true });
+
+    // Shuffled and hand-picked lists are ordered and paged here, from every match.
+    const { data, error, count } = orderBy !== 'rand' && !picked ? await allRows(q, offset, perPage) : await allRows(q);
+    // A page past the end: the database refuses the range; it is simply an empty page.
+    if (error?.code === 'PGRST103') {
+      const total = Math.max(0, Number(error.details?.match(/only (\d+) rows/)?.[1] ?? 0) - (args.offset ?? 0));
+      return { ids: [], total, pages: Math.ceil(total / perPage) };
+    }
+    if (error) throw error;
+    let rows = data ?? [];
+    if (orderBy === 'rand') rows = rows.sort(() => Math.random() - 0.5).slice(offset, offset + perPage);
+    if (picked) rows = rows.sort((a: any, b: any) => args.include!.indexOf(a.id) - args.include!.indexOf(b.id)).slice(offset, offset + perPage);
+    this.remember(rows);
+    const total = Math.max(0, (count ?? rows.length) - (args.offset ?? 0));
+    return { ids: rows.map((r: any) => r.id), total, pages: Math.ceil(total / perPage) };
+  }
+
+  /**
+   * query() ordered by relevance to args.search: every match is fetched (up to 500) and scored: the
+   * whole phrase in the title first, then each word in the title, excerpt and text; newest first on ties.
+   */
+  private async queryRanked(q: any, args: QueryArgs, perPage: number, offset: number): Promise<QueryResult> {
+    const { data, error } = await q.limit(500);
+    if (error) throw error;
+    const phrase = (args.search ?? '').toLowerCase();
+    const words = phrase.split(/\s+/).filter(Boolean);
+    const score = (r: any) => {
+      const title = String(r.title ?? '').toLowerCase();
+      const excerpt = String(r.excerpt ?? '').toLowerCase();
+      const text = String(r.body_text ?? '').toLowerCase();
+      let s = title === phrase ? 20 : title.includes(phrase) ? 10 : 0;
+      for (const w of words) s += (title.includes(w) ? 4 : 0) + (excerpt.includes(w) ? 2 : 0) + (text.includes(w) ? 1 : 0);
+      return s;
+    };
+    const rows = (data ?? [])
+      .map((r: any) => ({ r, s: score(r) }))
+      .sort((a: any, b: any) => b.s - a.s || Date.parse(b.r.published_at) - Date.parse(a.r.published_at) || a.r.id - b.r.id)
+      .map((x: any) => x.r);
+    const page = rows.slice(offset, offset + perPage);
+    for (const r of page) delete r.body_text;
+    this.remember(page);
+    const total = Math.max(0, rows.length - (args.offset ?? 0));
+    return { ids: page.map((r: any) => r.id), total, pages: Math.ceil(total / perPage) };
+  }
+
+  /** Whether any published event repeats; if none, event queries stay entirely in SQL. */
+  hasRecurring(): Promise<boolean> {
+    this.recurring ??= (async () => {
+      const { data, error } = await this.db.from('entries').select('id').eq('type', 'event').eq('status', 'publish').not(`fields->${RECURRENCE_KEY}`, 'is', null).limit(1);
+      if (error) throw error;
+      return !!data?.length;
+    })();
+    return this.recurring;
+  }
+
+  /**
+   * query() when recurring events exist: every matching row is fetched and series are expanded into
+   * their occurrences, then the upcoming filter, ordering and paging run here.
+   */
+  private async queryExpanded(q: any, args: QueryArgs, perPage: number, offset: number): Promise<QueryResult> {
+    const { data, error } = await allRows(q.order('id'));
+    if (error) throw error;
+    this.remember(data ?? []);
+    const horizon = defaultHorizon(this.now);
+    let rows: Entry[] = (data ?? []).flatMap((r: any) => expandEntry(this.entries.get(r.id)!, horizon));
+    const now = this.now.getTime();
+    if (args.upcoming) rows = rows.filter((e) => e.event_start && Date.parse(e.event_start) >= now);
+
+    const orderBy = args.upcoming ? 'event_start' : args.orderBy ?? 'date';
+    const dir = args.upcoming || (args.order ?? 'desc') === 'asc' ? 1 : -1;
+    const time = (v: string | null) => (v ? Date.parse(v) : -Infinity);
+    const key: Record<string, (e: Entry) => number | string> = {
+      date: (e) => time(e.published_at),
+      modified: (e) => time(e.updated_at),
+      event_start: (e) => time(e.event_start),
+      title: (e) => e.title.toLowerCase(),
+      menu_order: (e) => e.menu_order,
+      include: (e) => args.include?.indexOf(e.series_id ?? e.id) ?? 0,
+    };
+    const cmp = (a: number | string, b: number | string) => (a < b ? -1 : a > b ? 1 : 0);
+    if (orderBy === 'rand') rows.sort(() => Math.random() - 0.5);
+    else
+      rows.sort((a, b) => {
+        const primary =
+          orderBy === 'menu_order_title' ? cmp(a.menu_order, b.menu_order) || cmp(a.title.toLowerCase(), b.title.toLowerCase()) : cmp(key[orderBy](a), key[orderBy](b));
+        // Ties: insertion (series id) order, then occurrence date.
+        return dir * primary || (a.series_id ?? a.id) - (b.series_id ?? b.id) || time(a.event_start) - time(b.event_start);
+      });
+    for (const e of rows) if (e.occurrence) this.entries.set(e.id, e);
+    const total = Math.max(0, rows.length - (args.offset ?? 0));
+    return { ids: rows.slice(offset, offset + perPage).map((e) => e.id), total, pages: Math.ceil(total / perPage) };
+  }
+
+  /** Active forms (definitions only; notification settings are not publicly readable). */
+  forms(): Promise<FormRow[]> {
+    this.formsCache ??= (async () => {
+      const { data, error } = await this.db.from('forms').select('id, title, definition, is_active').eq('is_active', true).order('id');
+      if (error) throw error;
+      return (data ?? []) as FormRow[];
+    })();
+    return this.formsCache;
+  }
+}

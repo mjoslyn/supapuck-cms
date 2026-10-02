@@ -1,0 +1,269 @@
+---
+import Admin from '../../layouts/Admin.astro';
+import { SITE_TZ } from '../../lib/site';
+import { COMPOSABLE_TYPES, CONTENT_TYPES, PAGELESS_TYPES, RECORD_TYPES, site, taxonomiesOf } from '../../lib/site';
+import Terms from '../../admin/Terms.astro';
+import { permalink } from '../../lib/permalink';
+
+const db = Astro.locals.db;
+const params = Astro.url.searchParams;
+const type = params.get('type') ?? 'page';
+// Content > Taxonomies (the older ?type=tags is its Tags tab).
+const tagsView = type === 'terms' || type === 'tags';
+const taxonomyTab = type === 'tags' ? 'tag' : (params.get('taxonomy') ?? site.taxonomies[0]?.name ?? 'category');
+const q = (params.get('q') ?? '').trim();
+const status = ['publish', 'draft', 'trash'].includes(params.get('status') ?? '') ? params.get('status')! : 'all';
+const notice = params.get('notice');
+const tagSlug = params.get('tag') ?? '';
+
+// Tags: every tag with how many entries use it.
+const { data: tagRows, error: tagErr } = await db.from('terms').select('id, name, slug, entry_terms(count)').eq('taxonomy', 'tag').order('name');
+if (tagErr) throw tagErr;
+const tags = (tagRows ?? []).map((t: any) => ({ id: t.id as number, name: t.name as string, slug: t.slug as string, count: (t.entry_terms?.[0]?.count ?? 0) as number }));
+const activeTag = tags.find((t) => t.slug === tagSlug);
+
+let rows: any[] = [];
+if (!tagsView) {
+  let query = db.from('entries').select('id, type, slug, title, title_rendered, status, updated_at, event_start, fields, draft_saved_at, entry_terms(term_id)').eq('type', type);
+  if (q) query = query.ilike('title', `%${q}%`);
+  // All: everything but the trash.
+  query = status === 'all' ? query.neq('status', 'trash') : query.eq('status', status);
+  if (activeTag) {
+    const { data: linked } = await db.from('entry_terms').select('entry_id').eq('term_id', activeTag.id);
+    query = query.in('id', (linked ?? []).map((l) => l.entry_id).concat([-1]));
+  }
+  query = type === 'event' ? query.order('event_start', { ascending: false }) : query.order('updated_at', { ascending: false });
+  const { data, error } = await query.limit(500);
+  if (error) throw error;
+  rows = data ?? [];
+}
+const tagById = new Map(tags.map((t) => [t.id, t]));
+// Terms for bulk add / remove: the type's taxonomies, tags, and any taxonomy its entries use.
+let termGroups: { label: string; terms: { id: number; name: string; depth: number }[] }[] = [];
+if (!tagsView) {
+  const { data: allTerms } = await db.from('terms').select('id, name, taxonomy, parent_id, sort').order('sort').order('name');
+  const termRows = (allTerms ?? []) as { id: number; name: string; taxonomy: string; parent_id: number | null; sort: number }[];
+  const used = new Set(rows.flatMap((r) => (r.entry_terms ?? []).map((l: { term_id: number }) => termRows.find((t) => t.id === l.term_id)?.taxonomy)).filter(Boolean));
+  const own = taxonomiesOf(type);
+  const wanted = site.taxonomies.filter((t) => own.includes(t.name) || t.name === 'tag' || used.has(t.name));
+  termGroups = wanted.map((tax) => {
+    const mine = termRows.filter((t) => t.taxonomy === tax.name);
+    const ids = new Set(mine.map((t) => t.id));
+    const out: { id: number; name: string; depth: number }[] = [];
+    const place = (parent: number | null, depth: number) => mine.filter((t) => (t.parent_id && ids.has(t.parent_id) ? t.parent_id : null) === parent).forEach((t) => (out.push({ id: t.id, name: t.name, depth }), place(t.id, depth + 1)));
+    place(null, 0);
+    return { label: tax.label, terms: out };
+  }).filter((g) => g.terms.length);
+}
+const rowTags = (r: any) => ((r.entry_terms ?? []) as { term_id: number }[]).map((l) => tagById.get(l.term_id)).filter(Boolean) as typeof tags;
+const listUrl = (patch: Record<string, string | null>) => {
+  const u = new URL(Astro.url);
+  for (const [k, v] of Object.entries(patch)) v ? u.searchParams.set(k, v) : u.searchParams.delete(k);
+  return `${u.pathname}${u.search}`;
+};
+
+const counts = new Map<string, number>();
+await Promise.all(
+  CONTENT_TYPES.map(async (c) => {
+    const { count } = await db.from('entries').select('id', { count: 'exact', head: true }).eq('type', c.type).neq('status', 'trash');
+    counts.set(c.type, count ?? 0);
+  }),
+);
+// This type's entries by status, for the switcher.
+const statusCounts = new Map<string, number>();
+if (!tagsView) {
+  await Promise.all(
+    ['publish', 'draft', 'trash'].map(async (s) => {
+      const { count } = await db.from('entries').select('id', { count: 'exact', head: true }).eq('type', type).eq('status', s);
+      statusCounts.set(s, count ?? 0);
+    }),
+  );
+}
+const STATUS_TABS: [string, string][] = [['all', 'All'], ['publish', 'Published'], ['draft', 'Drafts'], ['trash', 'Trash']];
+const trashView = status === 'trash';
+const current = tagsView ? { type: 'terms', label: 'Taxonomies', singular: 'Term' } : (CONTENT_TYPES.find((c) => c.type === type) ?? CONTENT_TYPES[0]);
+const date = (s: string) => new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: SITE_TZ });
+const record = RECORD_TYPES.has(type);
+const pageless = PAGELESS_TYPES.has(type);
+const tagError = params.get('error');
+const place = (f: Record<string, any> | null) => [f?.address, f?.city, f?.state].filter(Boolean).join(', ');
+const decode = (s: string) => s.replace(/&#8217;/g, '’').replace(/&#038;|&amp;/g, '&').replace(/&#8211;/g, '–');
+---
+<Admin title={current.label}>
+  <div class="flex items-end justify-between gap-6">
+    <div>
+      <h1 class="font-[Fraunces,Georgia,serif] text-3xl font-normal">{current.label}</h1>
+      {!tagsView && <p class="mt-1 text-sm text-[#64748b]">{counts.get(type) ?? 0} total</p>}
+    </div>
+    {!tagsView && (
+    <div class="flex items-center gap-2">
+    {COMPOSABLE_TYPES.some((c) => c.type === type) && <a href={`/admin/compose/?type=${type}`} class="rounded-sm border border-[#1a1a2e]/20 bg-white px-4 py-2 text-xs font-semibold tracking-wider uppercase hover:border-[#b87333] hover:text-[#b87333]">Compose</a>}
+    <form method="post" action="/api/admin/entries">
+      <input type="hidden" name="type" value={type} />
+      <button class="rounded-sm bg-[#1a1a2e] px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">New {current.singular}</button>
+    </form>
+    </div>
+    )}
+  </div>
+
+  <nav class="mt-6 flex flex-wrap gap-1 border-b border-[#1a1a2e]/10 text-sm">
+    {CONTENT_TYPES.map((c) => (
+      <a href={`/admin/?type=${c.type}`} class:list={['-mb-px border-b-2 px-3 py-2', c.type === type ? 'border-[#b87333] text-[#1a1a2e]' : 'border-transparent text-[#64748b] hover:text-[#1a1a2e]']}>
+        {c.label} <span class="text-xs text-[#64748b]">{counts.get(c.type)}</span>
+      </a>
+    ))}
+    <a href="/admin/?type=terms" class:list={['-mb-px ml-auto border-b-2 px-3 py-2', tagsView ? 'border-[#b87333] text-[#1a1a2e]' : 'border-transparent text-[#64748b] hover:text-[#1a1a2e]']}>
+      Taxonomies
+    </a>
+  </nav>
+
+  {tagsView ? (
+    <Terms taxonomy={taxonomyTab} error={tagError} notice={params.get('notice')} />
+  ) : (
+  <>
+
+  <nav class="mt-4 flex gap-1 border-b border-[#1a1a2e]/10 text-sm" aria-label="Status">
+    {STATUS_TABS.map(([s, label]) => (
+      <a href={listUrl({ status: s === 'all' ? null : s, notice: null })} aria-current={s === status ? 'page' : undefined} class:list={['-mb-px border-b-2 px-3 py-2', s === status ? 'border-[#b87333] text-[#1a1a2e]' : 'border-transparent text-[#64748b] hover:text-[#1a1a2e]']}>
+        {label} <span class="text-xs text-[#64748b]">({s === 'all' ? (statusCounts.get('publish') ?? 0) + (statusCounts.get('draft') ?? 0) : (statusCounts.get(s) ?? 0)})</span>
+      </a>
+    ))}
+  </nav>
+  {notice && <p class="mt-3 rounded bg-[#6db56d]/10 px-3 py-2 text-sm text-[#1a1a2e]" role="status">{notice}</p>}
+
+  <form class="mt-4 flex gap-2 text-sm">
+    <input type="hidden" name="type" value={type} />
+    {status !== 'all' && <input type="hidden" name="status" value={status} />}
+    <input name="q" value={q} placeholder={`Search ${current.label.toLowerCase()}`} class="w-72 rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 outline-none focus:border-[#b87333]" />
+    {tags.length > 0 && (
+      <select name="tag" class="rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5">
+        <option value="">All tags</option>
+        {tags.map((t) => <option value={t.slug} selected={t.slug === tagSlug}>{decode(t.name)}</option>)}
+      </select>
+    )}
+    <button class="rounded border border-[#1a1a2e]/15 bg-white px-3 hover:border-[#b87333]">Filter</button>
+    {activeTag && <a href={listUrl({ tag: null })} class="self-center text-xs text-[#64748b] hover:text-[#b87333]">Clear tag “{decode(activeTag.name)}”</a>}
+  </form>
+
+  <form id="bulk" method="post" action="/api/admin/entries/bulk" class="mt-4 flex items-center gap-2 text-sm" data-bulk>
+    <input type="hidden" name="back" value={listUrl({ notice: null })} />
+    <label class="sr-only" for="bulk-action">Bulk action</label>
+    <select id="bulk-action" name="action" class="rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5">
+      <option value="">Bulk actions</option>
+      {trashView ? (
+        <>
+          <option value="restore">Restore (as drafts)</option>
+          <option value="delete">Delete permanently</option>
+        </>
+      ) : (
+        <>
+          <option value="publish">Publish</option>
+          <option value="draft">Move to drafts</option>
+          <option value="trash">Move to trash</option>
+          {termGroups.length > 0 && <option value="add-term">Add a term…</option>}
+          {termGroups.length > 0 && <option value="remove-term">Remove a term…</option>}
+        </>
+      )}
+    </select>
+    {termGroups.length > 0 && (
+      <>
+        <label class="sr-only" for="bulk-term">Term</label>
+        <select id="bulk-term" name="term" hidden class="rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5">
+          <option value="">Choose a term</option>
+          {termGroups.map((g) => (
+            <optgroup label={g.label}>
+              {g.terms.map((t) => <option value={t.id}>{'\u00a0\u00a0'.repeat(t.depth)}{decode(t.name)}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </>
+    )}
+    <button class="rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 hover:border-[#b87333] disabled:opacity-40" data-bulk-apply disabled>Apply</button>
+    <span class="text-xs text-[#64748b]" data-bulk-count></span>
+  </form>
+  <script>
+    // Bulk actions: the header box selects every row; Apply needs a selection and an action, and
+    // deleting permanently asks first.
+    const bulk = document.querySelector<HTMLFormElement>('form[data-bulk]');
+    if (bulk) {
+      const boxes = () => [...document.querySelectorAll<HTMLInputElement>('input[name="ids"][form="bulk"]')];
+      const all = document.querySelector<HTMLInputElement>('input[data-bulk-all]');
+      const apply = bulk.querySelector<HTMLButtonElement>('[data-bulk-apply]')!;
+      const action = bulk.querySelector<HTMLSelectElement>('select[name="action"]')!;
+      const count = bulk.querySelector<HTMLElement>('[data-bulk-count]')!;
+      const term = bulk.querySelector<HTMLSelectElement>('select[name="term"]');
+      const sync = () => {
+        const n = boxes().filter((b) => b.checked).length;
+        count.textContent = n ? `${n} selected` : '';
+        // Adding or removing a term asks which.
+        const needsTerm = action.value === 'add-term' || action.value === 'remove-term';
+        if (term) term.hidden = !needsTerm;
+        apply.disabled = !n || !action.value || (needsTerm && !term?.value);
+        if (all) {
+          all.checked = n > 0 && n === boxes().length;
+          all.indeterminate = n > 0 && n < boxes().length;
+        }
+      };
+      all?.addEventListener('change', () => {
+        boxes().forEach((b) => (b.checked = all.checked));
+        sync();
+      });
+      document.addEventListener('change', (e) => {
+        if ((e.target as HTMLElement).matches('input[name="ids"], select[name="action"], select[name="term"]')) sync();
+      });
+      bulk.addEventListener('submit', (e) => {
+        const n = boxes().filter((b) => b.checked).length;
+        if (action.value === 'delete' && !confirm(`Delete ${n} ${n === 1 ? 'entry' : 'entries'} permanently? This can't be undone.`)) e.preventDefault();
+      });
+      sync();
+    }
+  </script>
+
+  <table class="mt-3 w-full border-collapse overflow-hidden rounded bg-white text-sm shadow-[0_0_0_1px_rgba(26,26,46,0.08)]">
+    <thead class="bg-[#f5f3f0] text-left text-xs tracking-wider text-[#64748b] uppercase">
+      <tr>
+        <th class="w-8 py-2.5 pl-4"><input type="checkbox" data-bulk-all aria-label="Select all" /></th>
+        <th class="px-4 py-2.5 font-semibold">Title</th>
+        {type !== 'global' && <th class="px-4 py-2.5 font-semibold">Tags</th>}
+        <th class="px-4 py-2.5 font-semibold">Status</th>
+        <th class="px-4 py-2.5 font-semibold">{type === 'event' ? 'Starts' : 'Updated'}</th>
+        <th class="px-4 py-2.5"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {(rows ?? []).map((r) => (
+        <tr class="border-t border-[#1a1a2e]/5 hover:bg-[#faf8f5]">
+          <td class="py-2.5 pl-4 align-top"><input type="checkbox" name="ids" value={r.id} form="bulk" aria-label={`Select ${decode(r.title_rendered ?? r.title) || 'untitled entry'}`} /></td>
+          <td class="px-4 py-2.5">
+            <a href={`/admin/edit/${r.id}/`} class="font-medium hover:text-[#b87333]">{decode(r.title_rendered ?? r.title) || '(no title)'}</a>
+            <div class="text-xs text-[#64748b]">{record ? place(r.fields) : pageless ? '' : permalink(r)}</div>
+          </td>
+          {type !== 'global' && (
+            <td class="px-4 py-2.5">
+              <div class="flex flex-wrap gap-1">
+                {rowTags(r).map((t) => <a href={listUrl({ tag: t.slug })} class="rounded-full bg-[#f5f3f0] px-2 py-0.5 text-xs text-[#1a1a2e] hover:bg-[#b87333]/15">{decode(t.name)}</a>)}
+              </div>
+            </td>
+          )}
+          <td class="px-4 py-2.5">
+            <span class:list={['rounded-full px-2 py-0.5 text-xs', r.status === 'publish' ? 'bg-[#6db56d]/15 text-[#3f7a3f]' : 'bg-[#64748b]/10 text-[#64748b]']}>{r.status === 'publish' ? 'Published' : r.status === 'draft' ? 'Draft' : r.status === 'trash' ? 'Trash' : r.status}</span>
+            {r.status === 'publish' && r.draft_saved_at && <div class="mt-1 text-[11px] text-[#b87333]">Unpublished changes</div>}
+          </td>
+          <td class="px-4 py-2.5 text-[#64748b]">{date(type === 'event' && r.event_start ? r.event_start : r.updated_at)}</td>
+          <td class="px-4 py-2.5 text-right whitespace-nowrap">
+            {r.status === 'publish' && !pageless && <a href={permalink(r)} target="_blank" class="text-xs text-[#64748b] hover:text-[#b87333]">View</a>}
+            {!trashView && (
+              <form method="post" action="/api/admin/entries" class="ml-3 inline">
+                <input type="hidden" name="duplicate" value={r.id} />
+                <button class="text-xs text-[#64748b] hover:text-[#b87333]" aria-label={`Duplicate ${decode(r.title_rendered ?? r.title) || 'this entry'}`}>Duplicate</button>
+              </form>
+            )}
+          </td>
+        </tr>
+      ))}
+      {!rows?.length && <tr><td colspan="6" class="px-4 py-10 text-center text-[#64748b]">{activeTag ? 'Nothing with this tag.' : trashView ? 'The trash is empty.' : 'Nothing here yet.'}</td></tr>}
+    </tbody>
+  </table>
+  </>
+  )}
+</Admin>

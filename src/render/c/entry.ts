@@ -1,0 +1,182 @@
+// Entry fields shown inside collections and on single pages: title, excerpt, date, terms, image and
+// content. They read the entry in context (env.post).
+import type { Renderer } from '../env';
+import type { Entry } from '../../lib/types';
+import { mediaImage, mediaImgTag, markImages, mediaUrl } from '../../lib/media/image';
+import { permalink, termLink, byTermOrder } from '../../lib/permalink';
+import { formatDate, DATE_FORMAT } from '../../lib/date-format';
+import { trimWords } from '../html';
+import { renderItems } from '../engine';
+import { attrs, alignClass, escAttr, itemDecls, styleDecls, type Decl } from './style';
+import { layout } from './layout';
+import { parseRatio } from '../../lib/media/focal';
+import { MAIN_AREA, areaName } from '../../lib/content/areas';
+import { termPagesOn } from '../../lib/templates';
+
+const esc = (s: unknown) => String(s ?? '').replace(/&(?!(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);)/gi, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/** The entry's title as HTML: the imported rendered title (entities, smart quotes), else the escaped title. */
+export const entryTitle = (e: Entry) => e.title_rendered ?? esc(e.title);
+
+/** URL of an image field's value: a media id, or a URL as stored. */
+export function imageFieldUrl(ctx: { loader: { mediaById: (id: number) => { path: string } | undefined } }, value: unknown): string {
+  if (!value) return '';
+  if (typeof value === 'string' && !/^\d+$/.test(value)) return value;
+  const m = ctx.loader.mediaById(Number(value));
+  return m ? mediaUrl(m.path) : '';
+}
+
+function root(a: Record<string, any>, base: (string | false | null | undefined)[], extra: Decl[] = []) {
+  return attrs([...base, alignClass(a.width), a.style?.background ? 'has-bg' : null, a.className], [...styleDecls(a.style), ...itemDecls(a.item), ...extra], { id: a.anchor });
+}
+
+const linkAttrs = (a: Record<string, any>) => `${a.target ? ` target="${escAttr(a.target)}"` : ''}${a.rel ? ` rel="${escAttr(a.rel)}"` : ''}`;
+
+export const entryTitleBlock: Renderer = (b, { post }) => {
+  if (!post) return '';
+  const a = b.attrs;
+  let title = entryTitle(post);
+  if (!title) return '';
+  const tag = a.level === 0 ? 'p' : `h${a.level ?? 2}`;
+  if (a.link) title = `<a href="${permalink(post)}"${linkAttrs(a)}>${title}</a>`;
+  return `<${tag} ${root(a, ['c-entry-title'])}>${title}</${tag}>`;
+};
+
+export const entryExcerpt: Renderer = (b, { post }) => {
+  if (!post) return '';
+  const a = b.attrs;
+  let excerpt = post.excerpt_rendered ?? post.excerpt ?? '';
+  const more = a.moreText ? `<a class="c-entry-excerpt__more" href="${permalink(post)}">${a.moreText}</a>` : '';
+  if (more) excerpt = excerpt.replace(/ \[&hellip;\]$/, '');
+  excerpt = trimWords(excerpt, a.length ?? 55);
+  const body = a.moreOnNewLine !== false && more ? `<p class="c-entry-excerpt__text">${excerpt}</p><p class="c-entry-excerpt__more-line">${more}</p>` : `<p class="c-entry-excerpt__text">${excerpt} ${more}</p>`;
+  return `<div ${root(a, ['c-entry-excerpt'])}>${body}</div>`;
+};
+
+export const entryDate: Renderer = (b, { post }) => {
+  if (!post) return '';
+  const a = b.attrs;
+  if (a.modified && formatDate('YmdHi', post.updated_at) <= formatDate('YmdHi', post.published_at)) return '';
+  const date = a.modified ? post.updated_at : post.published_at;
+  let text = formatDate(a.format || DATE_FORMAT, date);
+  if (a.link) text = `<a href="${permalink(post)}">${text}</a>`;
+  return `<div ${root(a, ['c-entry-date'])}><time datetime="${formatDate('c', date)}">${text}</time></div>`;
+};
+
+export const entryTerms: Renderer = (b, { post, ctx }) => {
+  if (!post || !b.attrs.taxonomy) return '';
+  const a = b.attrs;
+  const terms = (post.term_ids ?? [])
+    .map((id) => ctx.loader.terms.get(id)!)
+    .filter((t) => t && t.taxonomy === a.taxonomy)
+    .sort(byTermOrder);
+  if (!terms.length) return '';
+  const sep = `<span class="c-entry-terms__sep">${esc(a.separator ?? ', ')}</span>`;
+  const prefix = a.prefix ? `<span class="c-entry-terms__prefix">${a.prefix}</span>` : '';
+  const suffix = a.suffix ? `<span class="c-entry-terms__suffix">${a.suffix}</span>` : '';
+  return `<div ${root(a, ['c-entry-terms'])}>${prefix}${terms.map((t) => (termPagesOn(ctx.settings.site, t.taxonomy) ? `<a href="${termLink(t)}" rel="tag">${esc(t.name)}</a>` : `<span>${esc(t.name)}</span>`)).join(sep)}${suffix}</div>`;
+};
+
+/**
+ * The entry's featured image, or with `field` an image field of the entry (e.g. a sponsor's square logo),
+ * falling back to the featured image when that field is empty. With `linkField`, the image links to
+ * that field's URL (in a new tab), or to the entry.
+ */
+export const entryImage: Renderer = (b, { post, ctx }) => {
+  if (!post) return '';
+  const a = b.attrs;
+
+  const fieldSrc = a.field ? imageFieldUrl(ctx, post.fields?.[a.field]) : '';
+  if (fieldSrc) {
+    // A field's image (a logo, a banner) in a shape: fitted inside it, not cropped, unless set otherwise.
+    const ratio = a.aspectRatio && a.aspectRatio !== 'auto' ? String(a.aspectRatio) : '';
+    const box = [ratio && `aspect-ratio:${ratio}`, a.height && `height:${a.height}`].filter(Boolean).join(';');
+    const shaped = box || a.scale ? ` style="width:100%;height:100%;object-fit:${escAttr(a.scale ?? 'contain')}"` : '';
+    const img = `<img src="${escAttr(fieldSrc)}" alt="${escAttr(entryTitle(post))}"${shaped}>`;
+    const inner = a.linkField ? `<a href="${escAttr(post.fields?.[a.linkField] || permalink(post))}" target="_blank" rel="noopener noreferrer">${img}</a>` : img;
+    return `<figure class="c-entry-image${a.scale && !box ? ' is-fill' : ''}${a.className ? ` ${escAttr(a.className)}` : ''}"${box ? ` style="${escAttr(box)}"` : ''}>${inner}</figure>`;
+  }
+
+  const media = post.featured_media_id ? ctx.loader.media.get(post.featured_media_id) : undefined;
+  if (!media) return '';
+  const s = a.style ?? {};
+  // Radius, borders and shadow draw on the image itself.
+  const imgStyle = styleDecls({ radius: s.radius, borderWidth: s.borderWidth, borderColor: s.borderColor, borderStyle: s.borderStyle, shadow: s.shadow });
+  if (a.aspectRatio || (a.scale && !a.height)) imgStyle.push(['width', '100%'], ['height', '100%']);
+  else if (a.height) imgStyle.push(['height', a.height]);
+  // The image fills a fixed ratio or height, cropped ("cover") unless set otherwise.
+  if (a.scale || a.aspectRatio || a.height) imgStyle.push(['object-fit', a.scale ?? 'cover']);
+  const alt = a.link ? entryTitle(post).replace(/<[^>]*>/g, '').trim() || `Untitled ${post.id}` : undefined;
+  const img = mediaImgTag(mediaImage(media, a.size || 'large', { alt, style: imgStyle.map(([p, v]) => `${p}:${v}`).join(';') || undefined, ratio: parseRatio(a.aspectRatio) }));
+  let overlay = '';
+  // Shade: a gradient darkening towards the bottom, so text over the image stays readable.
+  if (a.shade) overlay += '<span class="c-entry-image__overlay is-shade" aria-hidden="true"></span>';
+  if (a.dim) {
+    const d: Decl[] = [['opacity', String(a.dim / 100)]];
+    if (a.overlayGradient) d.push(['background', a.overlayGradient]);
+    else d.push(['background-color', a.overlay ?? '#000']);
+    if (s.radius && typeof s.radius === 'string') d.push(['border-radius', s.radius]);
+    overlay += `<span class="c-entry-image__overlay" style="${escAttr(d.map(([p, v]) => `${p}:${v}`).join(';'))}" aria-hidden="true"></span>`;
+  }
+  const inner = a.link ? `<a href="${permalink(post)}"${linkAttrs(a)}${a.height ? ` style="height:${escAttr(a.height)}"` : ''}>${img}${overlay}</a>` : img + overlay;
+  const dims: Decl[] = [];
+  if (a.aspectRatio) dims.push(['aspect-ratio', a.aspectRatio]);
+  if (a.imgWidth) dims.push(['width', a.imgWidth]);
+  if (a.height) dims.push(['height', a.height]);
+  const outer = { ...a, style: { margin: s.margin, padding: s.padding } };
+  // Cover: the image fills the block it sits in, behind the rest of it (a card with its title over the photo).
+  return `<figure ${root(outer, ['c-entry-image', a.cover ? 'is-cover' : null, a.scale && !a.aspectRatio && !a.height && !a.cover ? 'is-fill' : null], a.cover ? [] : dims)}>${inner}</figure>`;
+};
+
+/** The entry's own blocks (the page body inside a template). */
+export const entryContent: Renderer = (b, env) => {
+  const { post, ctx } = env;
+  if (!post) return '';
+  const a = b.attrs;
+  const area = areaName(a.area);
+  const editing = env.contentSlot && post.id === ctx.queried.entry?.id;
+  // In the editor each area is a drop zone (the marker says which); on the site, the area's blocks.
+  const inner = editing
+    ? env.contentSlot!.replace('<cms-content>', `<cms-content data-area="${area}">`)
+    : markImages(renderItems(ctx.docs.get(area === MAIN_AREA ? `content:${post.id}` : `content:${post.id}:${area}`), { ...env, parentLayout: a.layout ?? null, imgCtx: 'content' }), 'content');
+  if (!editing && !inner.trim()) return '';
+  const l = layout(ctx, a.layout ?? { type: 'flow' }, a.gap, a.style?.padding);
+  return `<div ${root(a, ['c-entry-content', ...l.classes], l.decls)}>${inner}</div>`;
+};
+
+/**
+ * One of the entry's own fields (a member's phone, a venue's address...): as text, a link (URL, email,
+ * phone) or an image. Attrs: field, as, label (shown before the value), linkText, newTab.
+ */
+export const entryField: Renderer = (b, env) => {
+  const a = b.attrs;
+  const post = env.post ?? env.ctx.queried.entry;
+  const key = String(a.field ?? '').trim();
+  if (!post || !key) return '';
+  const value = post.fields?.[key];
+  const text = value == null || typeof value === 'object' ? '' : String(value).trim();
+  const label = a.label ? `<span class="c-entry-field__label">${esc(a.label)}</span> ` : '';
+  const wrap = (inner: string) => `<p ${attrs(['c-entry-field', alignClass(a.width), a.className], styleDecls(a.style), { id: a.anchor })}>${label}${inner}</p>`;
+  if (a.as === 'image') {
+    const m = /^\d+$/.test(text) ? env.ctx.loader.mediaById(Number(text)) : undefined;
+    if (m) return wrap(mediaImgTag(mediaImage(m, a.size || 'medium', { alt: '' })));
+    return text ? wrap(`<img src="${escAttr(text)}" alt="" loading="lazy" />`) : '';
+  }
+  if (!text) return '';
+  const href = a.as === 'email' ? `mailto:${text}` : a.as === 'phone' ? `tel:${text.replace(/[^0-9+]/g, '')}` : a.as === 'link' ? text : '';
+  if (!href) return wrap(esc(text));
+  const shown = a.linkText || (a.as === 'link' ? text.replace(/^https?:\/\/(www\.)?|\/$/g, '') : text);
+  return wrap(`<a href="${escAttr(href)}"${a.newTab ? ' target="_blank" rel="noopener"' : ''}>${esc(shown)}</a>`);
+};
+
+export const ENTRY_RENDERERS = {
+  'entry-field': entryField,
+  'entry-title': entryTitleBlock,
+  'entry-excerpt': entryExcerpt,
+  'entry-date': entryDate,
+  'entry-terms': entryTerms,
+  'entry-image': entryImage,
+  'entry-content': entryContent,
+};
+
+export type { Entry };

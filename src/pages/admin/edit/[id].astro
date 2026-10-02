@@ -1,0 +1,35 @@
+---
+import '../../../styles/tailwind.css';
+import '../../../styles/admin.css';
+import Editor from '../../../puck/Editor';
+import RecordEditor from '../../../puck/RecordEditor';
+import Admin from '../../../layouts/Admin.astro';
+import { RECORD_TYPES, SITE_TZ, site, typeLabel } from '../../../lib/site';
+
+const id = Number(Astro.params.id);
+if (!id) return Astro.redirect('/admin/');
+const { data: row } = await Astro.locals.db.from('entries').select('type, title').eq('id', id).maybeSingle();
+if (!row) return Astro.redirect('/admin/');
+const record = RECORD_TYPES.has(row.type);
+const singular = typeLabel(row.type);
+---
+{record ? (
+  <Admin title={`Edit ${singular}`}>
+    <a href={`/admin/?type=${row.type}`} class="text-xs text-[#64748b] hover:text-[#b87333]">&larr; All {singular.toLowerCase()}s</a>
+    <h1 class="mt-2 mb-6 font-[Fraunces,Georgia,serif] text-3xl font-normal">{row.title || `New ${singular.toLowerCase()}`}</h1>
+    <RecordEditor client:only="react" entryId={id} singular={singular} />
+  </Admin>
+) : (
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <meta name="robots" content="noindex" />
+      <script is:inline define:vars={{ siteTz: SITE_TZ }}>window.__siteTz = siteTz;</script>
+      <title>Edit · {site.name} admin</title>
+    </head>
+    <body class="h-screen overflow-hidden font-[Work_Sans,system-ui,sans-serif]">
+      <Editor client:only="react" entryId={id} />
+    </body>
+  </html>
+)}

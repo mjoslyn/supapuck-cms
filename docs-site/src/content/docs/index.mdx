@@ -1,0 +1,51 @@
+---
+title: cms-core
+description: A CMS for small organisation sites, built on Astro, Supabase and the Puck visual editor.
+template: splash
+hero:
+  tagline: A CMS for small organisation sites (chambers of commerce, towns, venues, clubs). Astro rendering on Netlify, content in Supabase, a visual page editor, and Compose, which writes pages with Claude from your documents, images and links.
+  actions:
+    - text: Set up a site
+      link: start/local-setup/
+      icon: right-arrow
+    - text: How a site is built
+      link: site/configuration/
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Page editor">
+    Drag-and-drop blocks with drafts, preview, patterns, linked patterns and an accessibility check.
+  </Card>
+  <Card title="Content from one config">
+    Content types, fields and taxonomies are declared in `src/site/config.ts`. URLs, the editor,
+    Compose and the admin tabs all follow it.
+  </Card>
+  <Card title="Events">
+    Recurring events, a list, month and day calendar, and `.ics` feeds in the site's timezone.
+  </Card>
+  <Card title="Compose">
+    Claude builds whole pages, fills fields and edits single blocks from the materials an editor
+    adds, in the site's house style.
+  </Card>
+  <Card title="Media">
+    Focal points, standard crops, and AVIF and WebP copies of every upload.
+  </Card>
+  <Card title="Forms">
+    A form builder with conditional logic, server-side validation and email notifications.
+  </Card>
+</CardGrid>
+
+## How it fits together
+
+The code is split in two. **The core** is everything outside `src/site/`: rendering, the editor,
+the admin, the database schema. **A site** is `src/site/`: its configuration, blocks, card designs,
+colors and styles. The `cms-core` repository holds the core and an example site (Example Town). A
+real site is a fork that replaces `src/site/` and keeps `cms-core` as its `upstream` remote, so core
+updates merge in cleanly.
+
+- [Local setup](start/local-setup/) gets the example site running.
+- [Sites and upstream](start/sites-and-upstream/) explains how a site repository relates to the core.
+- [Site configuration](site/configuration/) covers everything a site can set.

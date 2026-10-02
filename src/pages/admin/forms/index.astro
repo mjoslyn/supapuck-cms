@@ -1,0 +1,93 @@
+---
+import Admin from '../../../layouts/Admin.astro';
+import { SITE_TZ } from '../../../lib/site';
+
+const db = Astro.locals.db;
+const { data: forms, error } = await db.from('forms').select('id, title, definition, is_active, updated_at').order('title');
+if (error) throw error;
+const { data: subs } = await db.from('form_submissions').select('form_id, created_at').not('form_id', 'is', null).order('created_at', { ascending: false });
+const counts = new Map<number, { n: number; last: string }>();
+for (const s of subs ?? []) {
+  const c = counts.get(s.form_id) ?? { n: 0, last: s.created_at };
+  c.n++;
+  counts.set(s.form_id, c);
+}
+const when = (s: string) => new Date(s).toLocaleDateString('en-US', { timeZone: SITE_TZ, month: 'short', day: 'numeric', year: 'numeric' });
+---
+<Admin title="Forms">
+  <div class="flex items-end justify-between">
+    <div>
+      <h1 class="font-[Fraunces,Georgia,serif] text-3xl font-normal">Forms</h1>
+      <p class="mt-1 text-sm text-[#64748b]">Build forms, then place them on pages with the Form block.</p>
+    </div>
+    <button id="new-form" class="rounded bg-[#b87333] px-4 py-2 text-sm font-medium text-white hover:bg-[#9a5f2a]">New form</button>
+  </div>
+  <div class="mt-6 overflow-hidden rounded bg-white shadow-[0_0_0_1px_rgba(26,26,46,0.08)]">
+    <table class="w-full text-sm">
+      <thead class="border-b border-[#1a1a2e]/10 text-left text-xs text-[#64748b]">
+        <tr>
+          <th class="px-4 py-2 font-medium">Title</th>
+          <th class="px-4 py-2 font-medium">Fields</th>
+          <th class="px-4 py-2 font-medium">Submissions</th>
+          <th class="px-4 py-2 font-medium">Last submission</th>
+          <th class="px-4 py-2 font-medium">Status</th>
+          <th class="px-4 py-2"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {(forms ?? []).map((f) => {
+          const c = counts.get(f.id);
+          return (
+            <tr class="border-b border-[#1a1a2e]/5 last:border-0 hover:bg-[#faf8f5]">
+              <td class="px-4 py-3">
+                <a href={`/admin/forms/${f.id}/`} class="font-medium hover:text-[#b87333]">{f.title}</a>
+              </td>
+              <td class="px-4 py-3 text-[#64748b]">{(f.definition?.fields ?? []).length}</td>
+              <td class="px-4 py-3">
+                <a href={`/admin/submissions/?form=${f.id}`} class="text-[#64748b] hover:text-[#b87333]">{c?.n ?? 0}</a>
+              </td>
+              <td class="px-4 py-3 text-[#64748b]">{c ? when(c.last) : '-'}</td>
+              <td class="px-4 py-3">
+                <span class:list={['rounded px-2 py-0.5 text-xs', f.is_active ? 'bg-[#ecfdf5] text-[#047857]' : 'bg-[#f1f5f9] text-[#64748b]']}>{f.is_active ? 'Active' : 'Inactive'}</span>
+              </td>
+              <td class="px-4 py-3 text-right whitespace-nowrap">
+                <a href={`/admin/forms/${f.id}/`} class="text-xs text-[#64748b] hover:text-[#b87333]">Edit</a>
+                <button data-duplicate={f.id} class="ml-3 text-xs text-[#64748b] hover:text-[#b87333]">Duplicate</button>
+                <button data-delete={f.id} data-title={f.title} data-count={c?.n ?? 0} class="ml-3 text-xs text-[#b91c1c] hover:underline">Delete</button>
+              </td>
+            </tr>
+          );
+        })}
+        {!forms?.length && (
+          <tr>
+            <td colspan="6" class="px-4 py-10 text-center text-[#64748b]">No forms yet.</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  </div>
+</Admin>
+
+<script>
+  const json = (r: Response) => (r.ok ? r.json() : r.text().then((t) => Promise.reject(new Error(t))));
+  document.getElementById('new-form')?.addEventListener('click', async () => {
+    const title = prompt('Form name', 'Untitled form');
+    if (title == null) return;
+    const { id } = await fetch('/api/admin/forms/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) }).then(json);
+    location.href = `/admin/forms/${id}/`;
+  });
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-duplicate]')) {
+    b.addEventListener('click', async () => {
+      const { id } = await fetch(`/api/admin/forms/${b.dataset.duplicate}/duplicate`, { method: 'POST' }).then(json);
+      location.href = `/admin/forms/${id}/`;
+    });
+  }
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-delete]')) {
+    b.addEventListener('click', async () => {
+      const n = Number(b.dataset.count);
+      if (!confirm(`Delete "${b.dataset.title}"?${n ? ` Its ${n} submission${n === 1 ? '' : 's'} will be kept.` : ''} Pages using this form will stop showing it.`)) return;
+      await fetch(`/api/admin/forms/${b.dataset.delete}/`, { method: 'DELETE' }).then(json);
+      location.reload();
+    });
+  }
+</script>
