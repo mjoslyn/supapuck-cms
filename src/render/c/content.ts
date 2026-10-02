@@ -56,9 +56,10 @@ export const heading: Renderer = (b) => {
 export function imageTag(env: Env, a: Record<string, any>, opts: { className?: string; style?: string } = {}): string {
   if (env.imageRatio) a = { ...a, aspectRatio: env.imageRatio };
   const m = a.mediaId ? env.ctx.loader.media.get(Number(a.mediaId)) : undefined;
-  // Cover or Contain without a set shape or height fills the block's own space.
+  // Cover or Contain without a set shape or height fills the block's own space; Cover with one fills
+  // the width (a ratio with a height would otherwise set the width from the height).
   const fill = a.scale && !a.aspectRatio && !a.imgHeight ? 'width:100%;height:100%' : '';
-  const style = [opts.style, fill, a.aspectRatio ? `aspect-ratio:${a.aspectRatio}` : '', a.aspectRatio && !a.scale ? 'object-fit:cover' : '', a.scale ? `object-fit:${a.scale}` : '', a.imgWidth ? `width:${a.imgWidth}` : '', a.imgHeight ? `height:${a.imgHeight}` : '']
+  const style = [opts.style, fill, a.aspectRatio ? `aspect-ratio:${a.aspectRatio}` : '', a.aspectRatio && !a.scale ? 'object-fit:cover' : '', a.scale ? `object-fit:${a.scale}` : '', a.imgWidth ? `width:${a.imgWidth}` : a.scale === 'cover' && (a.aspectRatio || a.imgHeight) ? 'width:100%' : '', a.imgHeight ? `height:${a.imgHeight}` : '']
     .filter(Boolean)
     .join(';');
   if (m) {
