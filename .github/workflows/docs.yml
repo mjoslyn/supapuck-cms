@@ -25,7 +25,12 @@ jobs:
       run:
         working-directory: docs-site
     steps:
+      # Only docs-site/: the root tsconfig.json extends astro/tsconfigs/strict, which the docs build
+      # would resolve without the core's packages installed.
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: /docs-site/
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
