@@ -60,7 +60,8 @@ export function imageTag(env: Env, a: Record<string, any>, opts: { className?: s
   // the width unless the block sets one (cropped unless Fit says otherwise); without one the image
   // keeps its own size.
   const fill = a.scale && !a.aspectRatio && !a.imgHeight ? 'width:100%;height:100%' : '';
-  const style = [opts.style, fill, a.aspectRatio ? `aspect-ratio:${a.aspectRatio}` : '', (a.aspectRatio || a.imgHeight) && !a.scale ? 'object-fit:cover' : '', a.scale ? `object-fit:${a.scale}` : '', a.imgWidth ? `width:${a.imgWidth}` : a.aspectRatio || a.imgHeight ? 'width:100%' : '', a.imgHeight ? `height:${a.imgHeight}` : '']
+  const fixedHeight = a.imgHeight && a.imgHeight !== 'auto';
+  const style = [opts.style, fill, a.aspectRatio ? `aspect-ratio:${a.aspectRatio}` : '', (a.aspectRatio || fixedHeight) && !a.scale ? 'object-fit:cover' : '', a.scale ? `object-fit:${a.scale}` : '', a.imgWidth ? `width:${a.imgWidth}` : a.aspectRatio || fixedHeight ? 'width:100%' : '', a.imgHeight ? `height:${a.imgHeight}` : '']
     .filter(Boolean)
     .join(';');
   if (m) {
