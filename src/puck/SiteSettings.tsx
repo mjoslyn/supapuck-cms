@@ -1,6 +1,7 @@
 // Site settings island, in tabs: General (name, tagline, front page, timezone), Types (the templates for
 // each type's pages and listing), Search (the types it covers), Social (profile links, default share
-// image), Redirects (saved as they are added, with the Not found log) and the site's own options. One Save for all;
+// image), Redirects (saved as they are added, with the Not found log), Sync (with another copy of the
+// site), Backups (snapshots and sync backups) and the site's own options. One Save for all;
 // the tab is in the URL (#search), and leaving with unsaved changes asks first.
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { FieldsForm } from './entry-fields';
@@ -10,6 +11,8 @@ import { NO_CONTENT_WARNING, chosenTemplate, defaultTaxonomyTemplates, defaultTe
 import { MediaPicker, Select, Text, Toggle, inputClass } from './fields';
 import { NETWORKS } from '../lib/social/icons';
 import Redirects, { type NotFound } from '../admin/Redirects';
+import Sync from '../admin/Sync';
+import BackupsTab from '../admin/Backups';
 import type { Redirect } from '../lib/redirects';
 import { MENU_FIELDS } from '../lib/navigation';
 
@@ -183,6 +186,8 @@ export default function SiteSettings({ site: initialSite, options: initialOption
       ),
     },
     { id: 'redirects', label: 'Redirects', panel: <Redirects initial={redirects} notFound={notFound} /> },
+    { id: 'sync', label: 'Sync', panel: <Sync /> },
+    { id: 'backups', label: 'Backups', panel: <BackupsTab /> },
     ...(SITE_EDITOR.settingsFields?.length
       ? [{ id: 'site', label: SITE_EDITOR.settingsTitle ?? 'Site options', panel: <FieldsForm defs={SITE_EDITOR.settingsFields} value={options} onChange={setOptions} /> }]
       : []),
@@ -232,8 +237,8 @@ export default function SiteSettings({ site: initialSite, options: initialOption
           <p className="text-xs text-[#64748b]" role="status">
             {status || (dirty ? 'Unsaved changes' : '')}
           </p>
-          {/* Redirects save as they are added; Save covers the other tabs. */}
-          {(current.id !== 'redirects' || dirty) && (
+          {/* Redirects, Sync and Backups save as they go; Save covers the other tabs. */}
+          {(!['redirects', 'sync', 'backups'].includes(current.id) || dirty) && (
             <button type="button" onClick={save} className="rounded-sm bg-[#1a1a2e] px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">
               Save settings
             </button>
@@ -241,7 +246,7 @@ export default function SiteSettings({ site: initialSite, options: initialOption
         </div>
       </div>
       {tabs.map((t) => (
-        <section key={t.id} role="tabpanel" id={`settings-panel-${t.id}`} aria-labelledby={`settings-tab-${t.id}`} tabIndex={0} hidden={t.id !== current.id} className={t.id === 'redirects' ? 'max-w-5xl' : t.id === 'site' || t.id === 'types' ? 'max-w-3xl' : 'max-w-md'}>
+        <section key={t.id} role="tabpanel" id={`settings-panel-${t.id}`} aria-labelledby={`settings-tab-${t.id}`} tabIndex={0} hidden={t.id !== current.id} className={['redirects', 'sync', 'backups'].includes(t.id) ? 'max-w-5xl' : t.id === 'site' || t.id === 'types' ? 'max-w-3xl' : 'max-w-md'}>
           {t.panel}
         </section>
       ))}

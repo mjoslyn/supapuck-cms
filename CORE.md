@@ -204,6 +204,57 @@ left out) and listed on the screen with Add redirect. Saving a rule clears the e
 wildcard, every entry under its prefix, which can be many); the API returns the cleared paths, and
 reports a failed clear rather than hiding it.
 
+## Sync
+
+Settings > Sync (admins; `src/admin/Sync.tsx`, `/api/admin/sync`, `src/lib/sync.ts`; backups on Settings >
+Backups) copies content
+between this site and another copy of it (production and a local copy), either way: entries of chosen
+types (with their terms and unpublished changes), terms of chosen taxonomies, files (media rows and
+every storage object: sizes, the kept original, AVIF/WebP copies), templates, parts and patterns,
+forms, settings (`site`, `options`; the site icon's files too) and redirects. The other copy is reached
+directly with `SYNC_REMOTE_URL`, `SYNC_REMOTE_SERVICE_KEY` and `SYNC_REMOTE_NAME`, so a sync runs from
+the copy that has them set (production can't reach a local copy).
+
+- Rows match by id (entries, terms, media, forms: the copies share ids, and a sync keeps them; then
+  `sync_reset_ids()` moves the id counters past them), by kind and slug (templates), by key (settings)
+  and by old address (redirects). Derived columns (`updated_at`, `body_text`, a redirect's
+  `wildcard`) are neither compared nor written.
+- Compare (`plan`) lists each group's new, changed and unchanged rows and its conflicts, which are
+  left alone: an id that is another row there, an address taken by another row, a parent or featured
+  image that isn't there (unless the sync brings it). Each new or changed row can be unticked, and
+  **Show differences** opens a line diff of the row as the target has it and as the sync would write it.
+- Syncing (`apply`, in batches the screen sends in turn) needs a warning ticked that names the target
+  and counts the rows it overwrites. It never deletes.
+- Before the first batch, `backup` checks the target can take the sync (not protected, and
+  `sync_reset_ids()` there: a copy without the migrations is refused before anything is written) and,
+  unless **Save a backup first** (on by default) is unticked, saves a backup in the target's private
+  `sync-backups` bucket: the rows the sync overwrites, whole and as they are, and the keys of the rows
+  it adds. If that fails, nothing is synced.
+- **Snapshots**: everything a sync covers on one copy (entries with their terms and unpublished
+  changes, terms, media rows, templates, forms, settings `site` and `options`, redirects), in the same
+  bucket as `<time>-snapshot-<trigger>.json`. Taken by **Back up now** (`snapshotNow`), before a
+  snapshot restore, and on a schedule: `netlify/functions/scheduled-snapshot.mts` runs daily at 07:00
+  UTC on the deployed site (not under `astro dev`) and calls `scheduledSnapshot`, which takes one if
+  they are on and the last is due (daily or weekly).
+- **Backups and snapshots hold rows, not stored images.** A file is backed up as its media row; its
+  image files in storage are not, and no restore brings them back.
+- **Settings > Backups** (`src/admin/Backups.tsx`) has a panel per copy (this site always, the other
+  copy when one is set up): what it
+  keeps (`settings.site.sync_backups_keep`, default 10, and `sync_snapshots` { enabled, every, keep },
+  default 14; 0 keeps all; each copy's own, never synced or restored; older ones are deleted after
+  each new one and when a number is lowered), and each backup to download, restore or delete.
+- **Restore** (`restore`): a sync's backup undoes that sync on the copy holding it (the rows it
+  overwrote go back, the rows it added are deleted); a snapshot puts every row it holds back
+  (`snapshotPreview` counts them and the rows made since, which are deleted only with **Also delete**).
+  Either way the current state is saved first (`before-restore`, never pruning the backup being
+  restored), so a restore can be undone the same way, and the copy's own sync settings stay as they
+  are. Rows to delete go first, so rows written back can't clash with them; rows are written 100 at a
+  time (a failed batch is retried row by row, reporting only the rows that can't go back), and entries'
+  terms and unpublished changes in bulk. Deleting a file deletes its media row only: its stored images
+  stay.
+- A site with **Protect this site from syncs** on (`settings.site.sync_protected`, set on its own Sync
+  tab) refuses every sync into it; settings syncs keep each copy's own protection.
+
 ## Search
 
 `/search/?q=` lists the entries whose title, excerpt or body text (`entries.body_text`) contain every

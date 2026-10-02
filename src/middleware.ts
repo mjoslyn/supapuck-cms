@@ -5,7 +5,7 @@ import { serverClient } from './lib/supabase';
 import { refreshSiteTimezone } from './lib/site/timezone';
 
 const PUBLIC_ADMIN = ['/admin/login/', '/admin/set-password/', '/api/auth/login', '/api/auth/logout'];
-const ADMIN_ONLY = ['/admin/settings', '/admin/users', '/api/admin/settings', '/api/admin/users'];
+const ADMIN_ONLY = ['/admin/settings', '/admin/users', '/api/admin/settings', '/api/admin/sync', '/api/admin/users'];
 
 export const onRequest = defineMiddleware(async (context, next) => {
   await refreshSiteTimezone();
