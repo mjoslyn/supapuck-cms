@@ -91,7 +91,10 @@ export const entryImage: Renderer = (b, { post, ctx }) => {
     // A field's image (a logo, a banner) in a shape: fitted inside it, not cropped, unless set otherwise.
     const ratio = a.aspectRatio && a.aspectRatio !== 'auto' ? String(a.aspectRatio) : '';
     // A shape fills the width: a ratio with a height would otherwise set the width from the height.
-    const box = [ratio && `aspect-ratio:${ratio}`, a.height && `height:${a.height}`, (ratio || (a.height && a.height !== 'auto')) && 'width:100%'].filter(Boolean).join(';');
+    // With a height the ratio is left out: it would give the box a minimum width (height x ratio)
+    // that pushes a narrow card wider.
+    const fixedHeight = a.height && a.height !== 'auto';
+    const box = [ratio && !fixedHeight && `aspect-ratio:${ratio}`, a.height && `height:${a.height}`, (ratio || fixedHeight) && 'width:100%'].filter(Boolean).join(';');
     const shaped = box || a.scale ? ` style="width:100%;height:100%;object-fit:${escAttr(a.scale ?? 'contain')}"` : '';
     const img = `<img src="${escAttr(fieldSrc)}" alt="${escAttr(entryTitle(post))}"${shaped}>`;
     const inner = a.linkField ? `<a href="${escAttr(post.fields?.[a.linkField] || permalink(post))}" target="_blank" rel="noopener noreferrer">${img}</a>` : img;
@@ -121,11 +124,12 @@ export const entryImage: Renderer = (b, { post, ctx }) => {
   }
   const inner = a.link ? `<a href="${permalink(post)}"${linkAttrs(a)}${a.height ? ` style="height:${escAttr(a.height)}"` : ''}>${img}${overlay}</a>` : img + overlay;
   const dims: Decl[] = [];
-  if (a.aspectRatio) dims.push(['aspect-ratio', a.aspectRatio]);
+  const fixedHeight = a.height && a.height !== 'auto';
+  // A shape fills the width unless the block sets one. With a height the ratio is left out: it would
+  // set the width from the height, and give the box a minimum width that pushes a narrow card wider.
+  if (a.aspectRatio && !fixedHeight) dims.push(['aspect-ratio', a.aspectRatio]);
   if (a.imgWidth) dims.push(['width', a.imgWidth]);
-  // A shape fills the width unless the block sets one: a ratio with a height would otherwise set the
-  // width from the height.
-  else if (a.aspectRatio || (a.height && a.height !== 'auto')) dims.push(['width', '100%']);
+  else if (a.aspectRatio || fixedHeight) dims.push(['width', '100%']);
   if (a.height) dims.push(['height', a.height]);
   const outer = { ...a, style: { margin: s.margin, padding: s.padding } };
   // Cover: the image fills the block it sits in, behind the rest of it (a card with its title over the photo).

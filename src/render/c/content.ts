@@ -58,10 +58,11 @@ export function imageTag(env: Env, a: Record<string, any>, opts: { className?: s
   const m = a.mediaId ? env.ctx.loader.media.get(Number(a.mediaId)) : undefined;
   // Cover or Contain without a set shape or height fills the block's own space. A shape or height fills
   // the width unless the block sets one (cropped unless Fit says otherwise); without one the image
-  // keeps its own size.
+  // keeps its own size. With a height the ratio only picks the crop: as CSS it would give the image a
+  // minimum width (height x ratio) that pushes a narrow column wider.
   const fill = a.scale && !a.aspectRatio && !a.imgHeight ? 'width:100%;height:100%' : '';
   const fixedHeight = a.imgHeight && a.imgHeight !== 'auto';
-  const style = [opts.style, fill, a.aspectRatio ? `aspect-ratio:${a.aspectRatio}` : '', (a.aspectRatio || fixedHeight) && !a.scale ? 'object-fit:cover' : '', a.scale ? `object-fit:${a.scale}` : '', a.imgWidth ? `width:${a.imgWidth}` : a.aspectRatio || fixedHeight ? 'width:100%' : '', a.imgHeight ? `height:${a.imgHeight}` : '']
+  const style = [opts.style, fill, a.aspectRatio && !fixedHeight ? `aspect-ratio:${a.aspectRatio}` : '', (a.aspectRatio || fixedHeight) && !a.scale ? 'object-fit:cover' : '', a.scale ? `object-fit:${a.scale}` : '', a.imgWidth ? `width:${a.imgWidth}` : a.aspectRatio || fixedHeight ? 'width:100%' : '', a.imgHeight ? `height:${a.imgHeight}` : '']
     .filter(Boolean)
     .join(';');
   if (m) {
