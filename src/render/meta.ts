@@ -1,7 +1,8 @@
 // <head> tags for search engines and social cards: description, canonical URL, robots, Open Graph
 // and Twitter card tags, and on the home page Organization data with the site's social profiles.
 // Entries use their SEO settings (fields.seo) and fall back to their excerpt and featured image, then
-// to the site's tagline and default share image (Settings).
+// to the site's tagline and default share image (Settings). Term pages use the term's SEO, then its
+// taxonomy's; type listing pages their own (src/lib/page-meta.ts).
 import type { RenderCtx } from './env';
 import { esc } from './html';
 import { permalink } from '../lib/permalink';
@@ -9,6 +10,8 @@ import { downsize, mediaUrl } from '../lib/media/image';
 import { seoOf, summary } from '../lib/seo';
 import { socialLinks } from '../lib/social/links';
 import { site as config } from '../lib/site';
+import { listingSeo, termSeo } from '../lib/page-meta';
+import { ARCHIVE_PATHS } from '../lib/site';
 
 const attr = (s: string) => esc(s).replace(/"/g, '&quot;');
 
@@ -18,7 +21,9 @@ export async function headMeta(ctx: RenderCtx, docTitle: string): Promise<string
   const origin = queried.url.origin;
   const siteSettings = settings.site ?? {};
   const entry = queried.kind === 'singular' ? queried.entry : undefined;
-  const seo = seoOf(entry?.fields);
+  const term = queried.kind === 'taxonomy' ? queried.term : undefined;
+  const listing = queried.kind === 'archive' && queried.postType ? queried.postType : undefined;
+  const seo = term ? termSeo(term, siteSettings) : listing ? listingSeo(siteSettings, listing, ARCHIVE_PATHS[listing] === queried.url.pathname && !queried.url.searchParams.get('q')) : seoOf(entry?.fields);
   const description = seo.description || (entry ? summary(entry.excerpt_rendered ?? entry.excerpt) : '') || (queried.isFront || !entry ? summary(siteSettings.description) : '');
   const path = entry ? (queried.isFront ? '/' : permalink(entry)) : queried.kind === 'search' ? '/search/' : queried.url.pathname;
   const url = origin + path;

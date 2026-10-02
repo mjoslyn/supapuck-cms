@@ -41,8 +41,8 @@ Everything that differs between sites lives in `src/site/`:
   `record`/`pageless`/`hidden`, taxonomies (`category`, its main one, and `taxonomies`, any others;
   each gets a term picker in an entry's settings, and collections, the event calendar and bulk actions
   offer them; `taxonomiesOf`), `fields` with `compose` hints, `describe`,
-  `logoField`, default `card`, `order`) and taxonomies (label, URL `base`, the type a term page `lists`;
-  `category` and `tag` are required). Core code reads it only through `src/lib/site` (`CONTENT_TYPES`,
+  `logoField`, default `card`, `order`) and taxonomies (label, URL `base`, the type a term page `lists`,
+  its terms' own `fields`; `category` and `tag` are required). Core code reads it only through `src/lib/site` (`CONTENT_TYPES`,
   `COMPOSABLE_TYPES`, `LISTABLE_TYPES`, `RECORD_TYPES`, `PAGELESS_TYPES`, `TYPE_BASES`,
   `ARCHIVE_PATHS`, `TAXONOMY_BASES`, `fieldsFor`, `categoryOf`, `termPageType`, `SITE_TZ`): the
   editor's Details, Compose's fields and prompt, permalinks, URL routing (archives, term pages,
@@ -131,7 +131,18 @@ Tags are terms of the `tag` taxonomy on any type: edited in each entry's setting
 
 Content > Taxonomies (`src/admin/Terms.astro`, `/api/admin/terms`) manages every taxonomy's terms, a
 tab each: terms nested under their parents (tags stay flat), with name, address and template to change,
-how many entries use each, its page and Delete. A term can't sit under itself or its children; a
+how many entries use each, its page, Details and Delete. **Details** (`src/admin/TermDetails.tsx`; GET
+and PUT `/api/admin/terms`) edits a term's description, featured image (`fields.image`), the taxonomy's
+own fields (its `fields` in the site config, under their keys in `terms.fields`) and SEO (`fields.seo`,
+as an entry's). `template`, `image` and `seo` are reserved keys. A taxonomy's featured image and SEO
+(Settings > Types, `settings.site.taxonomy_meta`) are the defaults for its term pages; `{term}` in its
+search title and description is the term's name (`src/lib/page-meta.ts`). On a term page, Featured
+image, Title, Excerpt and Field blocks outside a collection show the term: its featured image (else
+the taxonomy's), name (linking to its page), description and fields. **Write with Claude** (POST
+`/api/admin/meta-compose`, `quickAsk`, `ANTHROPIC_SEO_MODEL`) fills a term's description, search title,
+meta description and the taxonomy's fields with a `compose` hint, from its name, its parent, what it
+has now, the entries filed under it and optional notes; for a taxonomy (Settings > Types) it writes the
+`{term}` title and description patterns. Nothing is saved until the form is. A term can't sit under itself or its children; a
 changed address leaves a redirect from the old term page; deleting a term moves its children up.
 Terms move by dragging their handle: onto another's top or bottom edge to go beside it, onto its middle
 to go under it, or onto Top level; the handle's menu does the same from the keyboard (Move up, Move
@@ -156,6 +167,15 @@ social profiles as `sameAs`. Compose includes `seo` in every `build_page` and wr
 `generated`) on each build until someone edits it by hand. The entry settings' SEO section
 (`src/puck/SeoForm.tsx`) shows lengths and a search result preview, and Generate asks Claude
 (`POST /api/admin/seo`, `ANTHROPIC_SEO_MODEL`, default Haiku 4.5) for the page as it is in the editor.
+Term pages (`termSeo`): the search title is the term's, else its taxonomy's (with `{term}` filled in),
+also used for the `<title>`; the description the term's SEO description, else its description, else
+the taxonomy's; the share image the term's, else its featured image, else the taxonomy's; noindex
+from either. A type's listing page has its own featured image and SEO (Settings > Types,
+`settings.site.listing_meta`, `listingSeo`): the title (over the calendar's own) and description on
+the listing's address only, not on views under it (calendar months and days) or searches in it; the
+image and noindex on all of them. A Featured image block on a listing page, outside a collection,
+shows its image. Write with Claude (`/api/admin/meta-compose`) writes the title and description from
+what it lists.
 
 Settings > Social keeps the site's profiles (`settings.site.social`: network and URL;
 `src/lib/social/links.ts`) and the default share image (`share_image`). The `social-links` block

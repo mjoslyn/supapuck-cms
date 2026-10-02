@@ -68,6 +68,9 @@ export interface Taxonomy {
   base: string;
   /** The type a term page lists. Default: the one type filtered by this taxonomy (its `category`), else every type. */
   lists?: string;
+  /** Its terms' own fields (stored in terms.fields under `key`), edited in each term's details and shown
+   *  by the Field block on term pages. `template`, `image` and `seo` are reserved. */
+  fields?: FieldDef[];
 }
 
 /** Compose's house style: the colors its sections use, as CSS values. Each defaults to a role token. */

@@ -33,6 +33,45 @@ middle to go under it, or onto **Top level**. The handle's menu does the same fr
 (Move up, Move down, Move under). The order among siblings is `terms.sort` (then name), used by the
 list, the Filters dropdown and an entry's listed terms (`byTermOrder`).
 
+## Term details
+
+Each term's **Details** button opens:
+
+- **Description**: shown by the Excerpt block on its page, and the meta description when SEO has none.
+- **Featured image**: shown by the Featured image block on its page and when it is shared.
+- **Fields**: the taxonomy's own fields, declared in the site config like a type's:
+
+  ```ts
+  { name: 'member_category', label: 'Member category', base: 'directory/category',
+    fields: [{ key: 'tagline', label: 'Tagline', type: 'text' }] }
+  ```
+
+  They are stored in `terms.fields` under their keys (`template`, `image` and `seo` are reserved) and
+  shown by the Field block on its page.
+- **SEO**: search title, meta description, share image and noindex, as an entry's.
+
+### Write with Claude
+
+At the top of a term's Details, **Write with Claude** (with optional notes) fills in its description,
+search title and meta description, and the taxonomy's fields that have a `compose` hint (as a type's
+fields do for Compose). It works from the term's name, the term above it, its current description and
+the entries filed under it. Nothing is saved until you click Save. A taxonomy's **Featured image and
+SEO** panel has the same button, which writes its `{term}` title and description patterns.
+
+### Taxonomy defaults
+
+Under **Settings > Types**, each taxonomy with term pages has an **SEO** button beside its template's Edit, opening its featured image and SEO: an image, a
+search title, a meta description and noindex that its term pages use when a term has none of its own
+(for the meta description, a term's own description comes first too).
+In the title and description, `{term}` is replaced by the term's name, so `Ellicottville {term}
+businesses` gives each category page its own title.
+
+### On the term page
+
+In a term page's template, the Featured image, Title, Excerpt and Field blocks outside a collection
+show the term: its featured image (else the taxonomy's), its name (linking to its page), its description
+and its fields. Inside a collection they show each listed entry, as anywhere else.
+
 ## Term pages
 
 A taxonomy's `base` sets where its term pages live: `base: 'events/category'` serves

@@ -126,6 +126,7 @@ taxonomies: [
 | `label`, `singular` | Names; `singular` defaults to the label |
 | `base` | URL base for term pages: `directory/category` serves `/directory/category/<slug>/` |
 | `lists` | The type a term page lists. Default: the one type with this taxonomy as its `category`, else every type |
+| `fields` | Its terms' own fields, edited in each term's Details and shown by the Field block on term pages. `template`, `image` and `seo` are reserved |
 
 ## How the core reads it
 

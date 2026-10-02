@@ -1,5 +1,8 @@
 // Entry fields shown inside collections and on single pages: title, excerpt, date, terms, image and
-// content. They read the entry in context (env.post).
+// content. They read the entry in context (env.post). On a term page, outside a collection, Title,
+// Excerpt, Featured image and Field show the term: its name, description, featured image (else its
+// taxonomy's) and fields. On a type's listing page, outside a collection, Featured image shows the
+// listing's (Settings > Types).
 import type { Renderer } from '../env';
 import type { Entry } from '../../lib/types';
 import { mediaImage, mediaImgTag, markImages, mediaUrl } from '../../lib/media/image';
@@ -12,6 +15,10 @@ import { layout } from './layout';
 import { parseRatio } from '../../lib/media/focal';
 import { MAIN_AREA, areaName } from '../../lib/content/areas';
 import { termPagesOn } from '../../lib/templates';
+import { listingImageId, termImageId } from '../../lib/page-meta';
+import { ARCHIVE_PATHS, typeDef } from '../../lib/site';
+import type { Env } from '../env';
+import type { Term } from '../../lib/types';
 
 const esc = (s: unknown) => String(s ?? '').replace(/&(?!(?:#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);)/gi, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -30,23 +37,49 @@ function root(a: Record<string, any>, base: (string | false | null | undefined)[
   return attrs([...base, alignClass(a.width), a.style?.background ? 'has-bg' : null, a.className], [...styleDecls(a.style), ...itemDecls(a.item), ...extra], { id: a.anchor });
 }
 
+type Subject = Entry & { term?: Term; listing?: string };
+
+/** The queried term on a term page, shaped as the entry the blocks read (with `term` set). */
+function termSubject(env: Env): Subject | undefined {
+  const q = env.ctx.queried;
+  const t = q.kind === 'taxonomy' ? q.term : undefined;
+  if (!t) return undefined;
+  return { id: 0, type: t.taxonomy, slug: t.slug, title: t.name, excerpt: t.description ?? '', featured_media_id: termImageId(t, env.ctx.settings.site) ?? null, fields: t.fields ?? {}, term: t } as unknown as Subject;
+}
+/** A type listing page shaped as the entry the Featured image block reads (only that block uses it). */
+function listingSubject(env: Env): Subject | undefined {
+  const q = env.ctx.queried;
+  const type = q.kind === 'archive' ? q.postType : undefined;
+  const image = type ? listingImageId(env.ctx.settings.site, type) : undefined;
+  if (!type || !image) return undefined;
+  return { id: 0, type, slug: '', title: typeDef(type)?.label ?? type, excerpt: '', featured_media_id: image, fields: {}, listing: ARCHIVE_PATHS[type] } as unknown as Subject;
+}
+
+/** The entry in context, else the term of a term page. */
+const subject = (env: Env): Subject | undefined => (env.post as Subject | undefined) ?? termSubject(env);
+/** Where a title or image links: the entry, or the term's page. */
+const linkOf = (e: Subject) => (e.term ? termLink(e.term) : e.listing ? e.listing : permalink(e));
+
 const linkAttrs = (a: Record<string, any>) => `${a.target ? ` target="${escAttr(a.target)}"` : ''}${a.rel ? ` rel="${escAttr(a.rel)}"` : ''}`;
 
-export const entryTitleBlock: Renderer = (b, { post }) => {
+export const entryTitleBlock: Renderer = (b, env) => {
+  const post = subject(env);
   if (!post) return '';
   const a = b.attrs;
   let title = entryTitle(post);
   if (!title) return '';
   const tag = a.level === 0 ? 'p' : `h${a.level ?? 2}`;
-  if (a.link) title = `<a href="${permalink(post)}"${linkAttrs(a)}>${title}</a>`;
+  if (a.link) title = `<a href="${linkOf(post)}"${linkAttrs(a)}>${title}</a>`;
   return `<${tag} ${root(a, ['c-entry-title'])}>${title}</${tag}>`;
 };
 
-export const entryExcerpt: Renderer = (b, { post }) => {
+export const entryExcerpt: Renderer = (b, env) => {
+  const post = subject(env);
   if (!post) return '';
   const a = b.attrs;
   let excerpt = post.excerpt_rendered ?? post.excerpt ?? '';
-  const more = a.moreText ? `<a class="c-entry-excerpt__more" href="${permalink(post)}">${a.moreText}</a>` : '';
+  if (!excerpt && post.term) return '';
+  const more = a.moreText ? `<a class="c-entry-excerpt__more" href="${linkOf(post)}">${a.moreText}</a>` : '';
   if (more) excerpt = excerpt.replace(/ \[&hellip;\]$/, '');
   excerpt = trimWords(excerpt, a.length ?? 55);
   const body = a.moreOnNewLine !== false && more ? `<p class="c-entry-excerpt__text">${excerpt}</p><p class="c-entry-excerpt__more-line">${more}</p>` : `<p class="c-entry-excerpt__text">${excerpt} ${more}</p>`;
@@ -82,7 +115,9 @@ export const entryTerms: Renderer = (b, { post, ctx }) => {
  * falling back to the featured image when that field is empty. With `linkField`, the image links to
  * that field's URL (in a new tab), or to the entry.
  */
-export const entryImage: Renderer = (b, { post, ctx }) => {
+export const entryImage: Renderer = (b, env) => {
+  const { ctx } = env;
+  const post = subject(env) ?? listingSubject(env);
   if (!post) return '';
   const a = b.attrs;
 
@@ -97,7 +132,7 @@ export const entryImage: Renderer = (b, { post, ctx }) => {
     const box = [ratio && !fixedHeight && `aspect-ratio:${ratio}`, a.height && `height:${a.height}`, (ratio || fixedHeight) && 'width:100%'].filter(Boolean).join(';');
     const shaped = box || a.scale ? ` style="width:100%;height:100%;object-fit:${escAttr(a.scale ?? 'contain')}"` : '';
     const img = `<img src="${escAttr(fieldSrc)}" alt="${escAttr(entryTitle(post))}"${shaped}>`;
-    const inner = a.linkField ? `<a href="${escAttr(post.fields?.[a.linkField] || permalink(post))}" target="_blank" rel="noopener noreferrer">${img}</a>` : img;
+    const inner = a.linkField ? `<a href="${escAttr(post.fields?.[a.linkField] || linkOf(post))}" target="_blank" rel="noopener noreferrer">${img}</a>` : img;
     return `<figure class="c-entry-image${a.scale && !box ? ' is-fill' : ''}${a.className ? ` ${escAttr(a.className)}` : ''}"${box ? ` style="${escAttr(box)}"` : ''}>${inner}</figure>`;
   }
 
@@ -122,7 +157,7 @@ export const entryImage: Renderer = (b, { post, ctx }) => {
     if (s.radius && typeof s.radius === 'string') d.push(['border-radius', s.radius]);
     overlay += `<span class="c-entry-image__overlay" style="${escAttr(d.map(([p, v]) => `${p}:${v}`).join(';'))}" aria-hidden="true"></span>`;
   }
-  const inner = a.link ? `<a href="${permalink(post)}"${linkAttrs(a)}${a.height ? ` style="height:${escAttr(a.height)}"` : ''}>${img}${overlay}</a>` : img + overlay;
+  const inner = a.link ? `<a href="${linkOf(post)}"${linkAttrs(a)}${a.height ? ` style="height:${escAttr(a.height)}"` : ''}>${img}${overlay}</a>` : img + overlay;
   const dims: Decl[] = [];
   const fixedHeight = a.height && a.height !== 'auto';
   // A shape fills the width unless the block sets one. With a height the ratio is left out: it would
@@ -158,7 +193,7 @@ export const entryContent: Renderer = (b, env) => {
  */
 export const entryField: Renderer = (b, env) => {
   const a = b.attrs;
-  const post = env.post ?? env.ctx.queried.entry;
+  const post = env.post ?? env.ctx.queried.entry ?? termSubject(env);
   const key = String(a.field ?? '').trim();
   if (!post || !key) return '';
   const value = post.fields?.[key];

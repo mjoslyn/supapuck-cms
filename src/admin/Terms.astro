@@ -1,6 +1,7 @@
 ---
 // Content > Taxonomies: a tab per taxonomy of the site's config, its terms nested under their parents,
-// each with its name, address and template to change, how many entries use it, its page, and Delete;
+// each with its name, address and template to change, how many entries use it, its page, Details
+// (description, featured image, fields, SEO: src/admin/TermDetails.tsx) and Delete;
 // a form to add one (and where it goes), and a template for the terms ticked. A term moves by dragging
 // its handle: onto the top or bottom edge of another term to go beside it (the order at that level),
 // onto its middle to go under it, or onto Top level; with the keyboard, the handle's menu moves it up,
@@ -9,6 +10,7 @@ import { site } from '../lib/site';
 import { termLink } from '../lib/permalink';
 import { TAXONOMY_BASES } from '../lib/site';
 import { termPagesOn, termTemplate, templateLabel } from '../lib/templates';
+import TermDetails from './TermDetails';
 
 interface Props {
   taxonomy: string;
@@ -175,6 +177,7 @@ const input = 'rounded border border-[#1a1a2e]/15 bg-white px-2 py-1 text-sm foc
           <td class="px-4 py-2 text-[#64748b]">{t.count ? `${t.count} ${t.count === 1 ? 'entry' : 'entries'}` : 'Not used'}</td>
           <td class="px-4 py-2 text-right whitespace-nowrap">
             <button form={form} class="text-xs text-[#1a1a2e] hover:text-[#b87333]">Save</button>
+            <button type="button" data-term-details={t.id} class="ml-3 text-xs text-[#1a1a2e] hover:text-[#b87333]" aria-label={`Details of ${decode(t.name)}: description, featured image, fields, SEO`}>Details</button>
             {pages && <a href={termLink({ taxonomy: tax.name, slug: t.slug })} target="_blank" class="ml-3 text-xs text-[#64748b] hover:text-[#b87333]">View</a>}
             <form method="post" action="/api/admin/terms" class="ml-3 inline" data-confirm={`Delete "${decode(t.name)}"?${t.count ? ` It is removed from ${t.count} ${t.count === 1 ? 'entry' : 'entries'}.` : ''}${childrenOf(t.id).length ? ' The terms under it move up a level.' : ''}`}>
               <input type="hidden" name="taxonomy" value={tax.name} />
@@ -189,6 +192,7 @@ const input = 'rounded border border-[#1a1a2e]/15 bg-white px-2 py-1 text-sm foc
     {!ordered.length && <tr><td colspan="7" class="px-4 py-10 text-center text-[#64748b]">No {tax.label.toLowerCase()} yet.{flat ? ' Add one here or in any entry’s settings.' : ''}</td></tr>}
   </tbody>
 </table>
+<TermDetails client:load taxonomy={tax.name} />
 <script>
   document.querySelectorAll<HTMLFormElement>('form[data-confirm]').forEach((f) => f.addEventListener('submit', (e) => { if (!confirm(f.dataset.confirm!)) e.preventDefault(); }));
 

@@ -21,6 +21,31 @@ from the page as it is in the editor.
 Compose includes `seo` in every `build_page` and writes it, marked `generated`, on each build until
 someone edits it by hand.
 
+## Term pages
+
+A term's SEO lives in its own fields (Content > Taxonomies, **Details**), with the same settings as an
+entry's. Its taxonomy's defaults are under Settings > Types, where `{term}` in the title and
+description becomes the term's name. A term page uses:
+
+- **Search title** (and `<title>`): the term's, else the taxonomy's, else the term's name.
+- **Meta description**: the term's SEO description, else its description, else the taxonomy's, else the
+  site's tagline.
+- **Share image**: the term's, else its featured image, else the taxonomy's featured image, else the
+  site's default.
+- **noindex**: if either the term or its taxonomy sets it. See
+[Taxonomies and tags](../../content/taxonomies/#term-details).
+
+## Listing pages
+
+Each type's listing page (`/directory/`, `/events/`, `/news/`...) has its featured image and SEO under
+Settings > Types: the **SEO** button beside its listing template's Edit opens them: a search title, a meta description, noindex and a featured
+image, which is its share image and shows in a Featured image block on the page (outside a collection).
+**Write with Claude** writes the title and description from what the page lists.
+
+The title and description apply on the listing's own address. Views under it, such as the event
+calendar's months and days, and searches in it keep their own titles and descriptions; they get the
+image and noindex.
+
 ## Meta tags
 
 `src/render/meta.ts` writes the head tags: description, canonical, robots, Open Graph and Twitter

@@ -18,6 +18,7 @@ import { findRedirect } from '../lib/redirects';
 import { safeDecode } from '../lib/url';
 import { chosenTemplate, defaultTaxonomyTemplates, defaultTemplates, listingOn, termPagesOn, termTemplate, type TaxonomyTemplates, type TemplateMap } from '../lib/templates';
 import { seoOf } from '../lib/seo';
+import { listingSeo, termSeo } from '../lib/page-meta';
 import type { PuckItem } from '../lib/puck/types';
 import type { Entry, Term } from '../lib/types';
 import type { Queried, RenderCtx } from './env';
@@ -167,11 +168,20 @@ function editTargets(q: Queried, templateSlug: string, preview: boolean): string
   return `${id && id > 0 ? ` data-edit-entry="${id}"` : ''}${templateSlug ? ` data-edit-template="${esc(templateSlug)}"` : ''}`;
 }
 
+/** A search title set for a term page or a type's listing page (on its own address, not a search in it). */
+function ownTitle(q: Queried, site: Record<string, any>): string | undefined {
+  if (q.kind === 'taxonomy' && q.term) return termSeo(q.term, site).title;
+  if (q.kind === 'archive' && q.postType && !q.url.searchParams.get('q')) return listingSeo(site, q.postType, ARCHIVE_PATHS[q.postType] === q.url.pathname).title;
+  return undefined;
+}
+
 function documentTitle(q: Queried, site: Record<string, any>): string {
   const name = site.name ?? '';
   if (q.isFront) return seoOf(q.entry?.fields).title ? `${esc(seoOf(q.entry?.fields).title!)} &#8211; ${name}` : `${name} &#8211; ${site.description ?? ''}`;
   if (q.kind === 'singular' && q.entry) return `${seoOf(q.entry.fields).title ? esc(seoOf(q.entry.fields).title!) : (q.entry.title_rendered ?? q.entry.title)} &#8211; ${name}`;
   if (q.kind === 'search') return q.search ? `Search results for &#8220;${esc(q.search)}&#8221; &#8211; ${name}` : `Search &#8211; ${name}`;
+  const own = ownTitle(q, site);
+  if (own) return `${esc(own)} &#8211; ${name}`;
   if (q.kind === 'archive' || q.kind === 'taxonomy') {
     const t = archiveTitle({ ctx: { queried: q } } as any, false).replace(/<[^>]*>/g, '');
     return `${t} &#8211; ${name}`;
@@ -246,7 +256,8 @@ export async function renderRequest(url: URL, db: SupabaseClient, form?: FormRes
   // Live search on any search form (the search-form block or a site's own).
   if (body.includes('c-search-form') || body.includes('data-live-search')) scripts.push('<script src="/assets/js/search.js" defer></script>');
 
-  const title = ctx.data.get('calendar') ? `${esc((ctx.data.get('calendar') as { title: string }).title)} &#8211; ${site.name ?? ''}` : documentTitle(queried, site);
+  // A calendar view names itself ("Events for October 2026"), unless its listing has a search title of its own.
+  const title = ctx.data.get('calendar') && !ownTitle(queried, site) ? `${esc((ctx.data.get('calendar') as { title: string }).title)} &#8211; ${site.name ?? ''}` : documentTitle(queried, site);
   const meta = await headMeta(ctx, title);
   const html = `<!DOCTYPE html>
 <html lang="en-US">

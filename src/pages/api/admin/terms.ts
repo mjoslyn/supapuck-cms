@@ -3,6 +3,7 @@ import { isTaxonomy, TAXONOMY_BASES } from '../../../lib/site';
 import { slugify } from '../../../lib/slug';
 import { termLink } from '../../../lib/permalink';
 import { redirectMovedEntry } from '../../../lib/redirects';
+import { termFieldsFor } from '../../../lib/page-meta';
 
 /**
  * Manage a taxonomy's terms from Content > Taxonomies (form posts, back to the taxonomy's tab):
@@ -13,6 +14,7 @@ import { redirectMovedEntry } from '../../../lib/redirects';
  * one its term page uses, shared by the terms under it; empty clears it. Tags are flat;
  * other taxonomies nest. A term whose address changes leaves a redirect from its old term page;
  * deleting a term moves its children up to its parent, and entries lose it (entry_terms cascade).
+ * GET and PUT (JSON, below) read and save one term's details: description, featured image, SEO, fields.
  */
 export const POST: APIRoute = async ({ request, locals, redirect }) => {
   const db = locals.db;
@@ -107,4 +109,47 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
   // The term page moved with its address: the old one redirects.
   if (term!.slug !== slug && TAXONOMY_BASES[taxonomy]) await redirectMovedEntry(db, termLink({ taxonomy, slug: term!.slug }), termLink({ taxonomy, slug }));
   return back('notice', `Saved "${name}".`);
+};
+
+/** One term's details, for the details dialog: GET ?id=. */
+export const GET: APIRoute = async ({ url, locals }) => {
+  const { data, error } = await locals.db.from('terms').select('id, taxonomy, name, slug, description, fields').eq('id', Number(url.searchParams.get('id'))).maybeSingle();
+  if (error) return new Response(error.message, { status: 400 });
+  if (!data) return new Response('That term no longer exists.', { status: 404 });
+  return Response.json({ ...data, link: TAXONOMY_BASES[data.taxonomy] ? termLink(data as any) : null });
+};
+
+const text = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
+const mediaId = (v: unknown) => (Number(v) > 0 ? Number(v) : undefined);
+
+/**
+ * Save a term's details (JSON): PUT { id, taxonomy, description, image, image_url, seo, fields }.
+ * The featured image and SEO go in terms.fields (`image`, `image_url`, `seo`), the taxonomy's own fields
+ * under their keys; its template and any other stored keys are kept.
+ */
+export const PUT: APIRoute = async ({ request, locals }) => {
+  const body = await request.json().catch(() => ({}));
+  const taxonomy = String(body.taxonomy ?? '');
+  if (!isTaxonomy(taxonomy)) return new Response('Unknown taxonomy.', { status: 400 });
+  const { data: term, error: readErr } = await locals.db.from('terms').select('id, fields').eq('id', Number(body.id)).eq('taxonomy', taxonomy).maybeSingle();
+  if (readErr) return new Response(readErr.message, { status: 400 });
+  if (!term) return new Response('That term no longer exists.', { status: 404 });
+  const fields: Record<string, any> = { ...(term.fields ?? {}) };
+  const image = mediaId(body.image);
+  if (image) Object.assign(fields, { image, image_url: text(body.image_url, 2000) });
+  else delete fields.image, delete fields.image_url;
+  const s = body.seo && typeof body.seo === 'object' ? body.seo : {};
+  const seo = Object.fromEntries(
+    Object.entries({ title: text(s.title, 300), description: text(s.description, 1000), image: mediaId(s.image), image_url: mediaId(s.image) ? text(s.image_url, 2000) : '', noindex: s.noindex === true || undefined }).filter(([, v]) => v),
+  );
+  if (Object.keys(seo).length) fields.seo = seo;
+  else delete fields.seo;
+  for (const f of termFieldsFor(taxonomy)) {
+    const v = body.fields?.[f.key];
+    if (v === undefined || v === null || v === '') delete fields[f.key];
+    else fields[f.key] = v;
+  }
+  const { error } = await locals.db.from('terms').update({ description: text(body.description, 5000), fields }).eq('id', term.id);
+  if (error) return new Response(error.message, { status: 400 });
+  return Response.json({ ok: true, fields });
 };

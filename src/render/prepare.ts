@@ -1,5 +1,6 @@
 // Async pass before rendering: resolve template parts, patterns and synced patterns, run queries,
 // and preload media and fields. Renderers are synchronous and read everything from ctx.
+import { listingImageId, termFieldsFor, termImageId } from '../lib/page-meta';
 import type { PuckItem } from '../lib/puck/types';
 import type { QueryArgs } from '../lib/data';
 import { frontPage } from '../lib/permalink';
@@ -259,6 +260,15 @@ export async function prepare(items: PuckItem[], ctx: RenderCtx) {
   const state: WalkState = { uid: 0, mediaIds: [] };
   const e = ctx.queried.entry;
   if (e?.featured_media_id) await ctx.loader.loadMedia([e.featured_media_id]);
+  // On a term page, the term's featured image (or its taxonomy's) and image fields, for the blocks showing it.
+  const t = ctx.queried.kind === 'taxonomy' ? ctx.queried.term : undefined;
+  if (t) {
+    const ids = [termImageId(t, ctx.settings.site), ...termFieldsFor(t.taxonomy).filter((f) => f.type === 'image').map((f) => Number(t.fields?.[f.key]))].filter((n): n is number => !!n && n > 0);
+    if (ids.length) await ctx.loader.loadMedia(ids);
+  }
+  // On a type's listing page, its featured image (Settings > Types).
+  const listingImage = ctx.queried.kind === 'archive' && ctx.queried.postType ? listingImageId(ctx.settings.site, ctx.queried.postType) : undefined;
+  if (listingImage) await ctx.loader.loadMedia([listingImage]);
   // Filters blocks set what the page's main query reads from the URL, so they are found first.
   const filters = findFilters(items);
   if (filters.length) ctx.data.set('filters', filters);

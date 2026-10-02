@@ -31,6 +31,23 @@ function taxonomyTemplatesFrom(v: unknown): Record<string, string> | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
+/** Featured image and SEO by name (known names, known keys): a taxonomy's defaults for its term pages,
+ *  or a type's listing page. */
+function pageMetaFrom(v: unknown, names: string[]): Record<string, unknown> | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const text = (x: unknown, max: number) => (typeof x === 'string' ? x.slice(0, max) : '');
+  const out: Record<string, unknown> = {};
+  for (const name of names) {
+    const m = (v as Record<string, any>)[name];
+    if (!m || typeof m !== 'object') continue;
+    const image = Number(m.image) > 0 ? Number(m.image) : undefined;
+    const seo = Object.fromEntries(Object.entries({ title: text(m.seo?.title, 300), description: text(m.seo?.description, 1000), noindex: m.seo?.noindex === true || undefined }).filter(([, x]) => x));
+    const entry = { ...(image ? { image, image_url: text(m.image_url, 2000) } : {}), ...(Object.keys(seo).length ? { seo } : {}) };
+    if (Object.keys(entry).length) out[name] = entry;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** Taxonomies whose term pages are turned off (those with pages), or undefined for none. */
 function taxonomyPagesOffFrom(v: unknown): string[] | undefined {
   if (!Array.isArray(v)) return undefined;
@@ -59,7 +76,7 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   const timezone = body.site?.timezone || undefined;
   if (timezone && !isTimezone(timezone)) return new Response(`Unknown timezone: ${timezone}`, { status: 400 });
   const before = current?.value?.timezone || config.timezone;
-  const site = { ...(current?.value ?? {}), name: body.site?.name, description: body.site?.description, front_page_id: body.site?.front_page_id ?? null, timezone, search_types: searchTypesFrom(body.site?.search_types), templates: templatesFrom(body.site?.templates), taxonomy_templates: taxonomyTemplatesFrom(body.site?.taxonomy_templates), taxonomy_pages_off: taxonomyPagesOffFrom(body.site?.taxonomy_pages_off), listings_off: listingsOffFrom(body.site?.listings_off), social: socialLinks(body.site), share_image: Number(body.site?.share_image) || undefined, share_image_url: body.site?.share_image ? String(body.site?.share_image_url ?? '') : undefined };
+  const site = { ...(current?.value ?? {}), name: body.site?.name, description: body.site?.description, front_page_id: body.site?.front_page_id ?? null, timezone, search_types: searchTypesFrom(body.site?.search_types), templates: templatesFrom(body.site?.templates), taxonomy_templates: taxonomyTemplatesFrom(body.site?.taxonomy_templates), taxonomy_pages_off: taxonomyPagesOffFrom(body.site?.taxonomy_pages_off), taxonomy_meta: pageMetaFrom(body.site?.taxonomy_meta, config.taxonomies.map((t) => t.name)), listing_meta: pageMetaFrom(body.site?.listing_meta, Object.keys(ARCHIVE_PATHS)), listings_off: listingsOffFrom(body.site?.listings_off), social: socialLinks(body.site), share_image: Number(body.site?.share_image) || undefined, share_image_url: body.site?.share_image ? String(body.site?.share_image_url ?? '') : undefined };
   const rows = [{ key: 'site', value: site }, ...(body.options ? [{ key: 'options', value: body.options }] : [])];
   // The site icon: a newly chosen image is made into the icon files; removing it removes them.
   if (body.site && 'icon_media_id' in body.site) {

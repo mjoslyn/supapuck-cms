@@ -3,27 +3,31 @@
 // image), Redirects (saved as they are added, with the Not found log), Sync (with another copy of the
 // site), Backups (snapshots and sync backups) and the site's own options. One Save for all;
 // the tab is in the URL (#search), and leaving with unsaved changes asks first.
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { FieldsForm } from './entry-fields';
 import { SITE_EDITOR } from '../lib/site/editor';
 import { ARCHIVE_PATHS, CONTENT_TYPES, PAGELESS_TYPES, SEARCHABLE_TYPES, TYPE_BASES, site as config, taxonomiesOf, taxonomyLabel, typeDef } from '../lib/site';
 import { NO_CONTENT_WARNING, chosenTemplate, defaultTaxonomyTemplates, defaultTemplates, templateLabel, type TemplateInfo, type TemplateMap } from '../lib/templates';
-import { MediaPicker, Select, Text, Toggle, inputClass } from './fields';
+import { MediaPicker, Row, Select, Text, Toggle, inputClass } from './fields';
 import { NETWORKS } from '../lib/social/icons';
 import Redirects, { type NotFound } from '../admin/Redirects';
 import Sync from '../admin/Sync';
 import BackupsTab from '../admin/Backups';
 import type { Redirect } from '../lib/redirects';
 import { MENU_FIELDS } from '../lib/navigation';
+import type { TaxonomyMeta } from '../lib/page-meta';
 
 interface Props {
-  site: { name?: string; description?: string; front_page_id?: number | null; timezone?: string; search_types?: string[]; social?: { network: string; url: string }[]; share_image?: number; share_image_url?: string; templates?: TemplateMap; taxonomy_templates?: Record<string, string>; taxonomy_pages_off?: string[]; listings_off?: string[]; icons?: Record<string, string>; icon_media_id?: number | null; icon_preview?: string };
+  site: { name?: string; description?: string; front_page_id?: number | null; timezone?: string; search_types?: string[]; social?: { network: string; url: string }[]; share_image?: number; share_image_url?: string; templates?: TemplateMap; taxonomy_templates?: Record<string, string>; taxonomy_pages_off?: string[]; taxonomy_meta?: Record<string, TaxonomyMeta>; listing_meta?: Record<string, TaxonomyMeta>; listings_off?: string[]; icons?: Record<string, string>; icon_media_id?: number | null; icon_preview?: string };
   options: Record<string, any>;
   pages: { id: number; title: string }[];
   templates: TemplateInfo[];
   redirects: Redirect[];
   notFound: NotFound[];
 }
+
+/** The template pickers' value for "Off" (no listing page, no term pages). */
+const OFF = '__off__';
 
 /** Every IANA timezone the browser knows. */
 const TIMEZONES: string[] = (Intl as any).supportedValuesOf?.('timeZone') ?? [config.timezone];
@@ -91,8 +95,8 @@ export default function SiteSettings({ site: initialSite, options: initialOption
       label: 'Types',
       panel: (
         <>
-          <TypeTemplates value={site.templates ?? {}} off={site.listings_off ?? []} templates={templates} onChange={(m) => setSite({ ...site, templates: m })} onListings={(off) => setSite({ ...site, listings_off: off })} />
-          <TaxonomyTemplatesPanel value={site.taxonomy_templates ?? {}} off={site.taxonomy_pages_off ?? []} templates={templates} onChange={(m) => setSite({ ...site, taxonomy_templates: Object.keys(m).length ? m : undefined })} onPages={(off) => setSite({ ...site, taxonomy_pages_off: off.length ? off : undefined })} />
+          <TypeTemplates value={site.templates ?? {}} off={site.listings_off ?? []} templates={templates} meta={site.listing_meta ?? {}} onChange={(m) => setSite((s) => ({ ...s, templates: m }))} onListings={(off) => setSite((s) => ({ ...s, listings_off: off }))} onMeta={(m) => setSite((s) => ({ ...s, listing_meta: Object.keys(m).length ? m : undefined }))} />
+          <TaxonomyTemplatesPanel value={site.taxonomy_templates ?? {}} off={site.taxonomy_pages_off ?? []} templates={templates} meta={site.taxonomy_meta ?? {}} onChange={(m) => setSite((s) => ({ ...s, taxonomy_templates: Object.keys(m).length ? m : undefined }))} onPages={(off) => setSite((s) => ({ ...s, taxonomy_pages_off: off.length ? off : undefined }))} onMeta={(m) => setSite((s) => ({ ...s, taxonomy_meta: Object.keys(m).length ? m : undefined }))} />
         </>
       ),
     },
@@ -255,15 +259,22 @@ export default function SiteSettings({ site: initialSite, options: initialOption
 }
 
 /** Types with pages of their own, and the template for their entries and their listing page. */
-function TypeTemplates({ value, off, templates, onChange, onListings }: { value: TemplateMap; off: string[]; templates: TemplateInfo[]; onChange: (m: TemplateMap) => void; onListings: (off: string[]) => void }) {
+function TypeTemplates({ value, off, templates, meta, onChange, onListings, onMeta }: { value: TemplateMap; off: string[]; templates: TemplateInfo[]; meta: Record<string, TaxonomyMeta>; onChange: (m: TemplateMap) => void; onListings: (off: string[]) => void; onMeta: (m: Record<string, TaxonomyMeta>) => void }) {
   const have = new Set(templates.map((t) => t.slug));
   const types = CONTENT_TYPES.filter((t) => !PAGELESS_TYPES.has(t.type));
+  const setMeta = (type: string, m: TaxonomyMeta) => {
+    const next = { ...meta };
+    if (m.image || (m.seo && Object.keys(m.seo).length)) next[type] = m;
+    else delete next[type];
+    onMeta(next);
+  };
   const set = (type: string, kind: 'single' | 'archive', slug: string) => {
     const next: TemplateMap = { ...value, [type]: { ...value[type], [kind]: slug || undefined } };
     if (!next[type].single && !next[type].archive) delete next[type];
     onChange(next);
   };
-  const pick = (type: string, kind: 'single' | 'archive') => {
+  /** A template picker; for a listing (`listing` set), its last option turns the listing off. */
+  const pick = (type: string, kind: 'single' | 'archive', listing?: { off: boolean; setOff: (off: boolean) => void; note: ReactNode; extra?: ReactNode }) => {
     const chosen = chosenTemplate(value, type, kind);
     const fallback = defaultTemplates(type, kind).find((s) => have.has(s));
     const shown = chosen && have.has(chosen) ? chosen : fallback;
@@ -271,27 +282,39 @@ function TypeTemplates({ value, off, templates, onChange, onListings }: { value:
     return (
       <>
       <div className="flex items-center gap-2">
-        <select aria-label={`${typeDef(type)?.label ?? type}: ${kind === 'single' ? 'page' : 'listing'} template`} className={inputClass} value={chosen ?? ''} onChange={(e) => set(type, kind, e.target.value)}>
+        <select
+          aria-label={`${typeDef(type)?.label ?? type}: ${kind === 'single' ? 'page' : 'listing'} template`}
+          className={inputClass}
+          value={listing?.off ? OFF : (chosen ?? '')}
+          onChange={(e) => {
+            if (listing && e.target.value === OFF) return listing.setOff(true);
+            if (listing?.off) listing.setOff(false);
+            set(type, kind, e.target.value);
+          }}
+        >
           <option value="">Default{fallback ? ` (${fallback})` : ''}</option>
           {templates.map((t) => (
             <option key={t.slug} value={t.slug}>
               {templateLabel(t)}
             </option>
           ))}
+          {listing && <option value={OFF}>Off: no listing page</option>}
         </select>
-        {shown && (
+        {shown && !listing?.off && (
           <a className="shrink-0 text-xs text-[#b87333] hover:underline" href={`/admin/templates/template/${shown}/`}>
             Edit
           </a>
         )}
+        {!listing?.off && listing?.extra}
       </div>
       {lacking && <p className="mt-1 text-xs text-[#b3261e]">{NO_CONTENT_WARNING}</p>}
+      {listing && <p className="mt-1 text-xs text-[#64748b]">{listing.note}</p>}
       </>
     );
   };
   return (
     <>
-      <p className="mb-4 text-xs text-[#64748b]">The template for each type's pages, and its listing page: on or off, and its template. A template chosen on an entry itself (in its settings) comes first. Under each type, its taxonomies (set in the site config; each gets a picker in an entry's settings).</p>
+      <p className="mb-4 text-xs text-[#64748b]">The template for each type's pages and for its listing page; choose Off to turn a listing page off. A template chosen on an entry itself (in its settings) comes first. Under each type, its taxonomies (set in the site config; each gets a picker in an entry's settings).</p>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-xs text-[#64748b]">
@@ -302,7 +325,8 @@ function TypeTemplates({ value, off, templates, onChange, onListings }: { value:
         </thead>
         <tbody>
           {types.map((t) => (
-            <tr key={t.type} className="border-t border-[#1a1a2e]/10 align-top">
+            <Fragment key={t.type}>
+            <tr className="border-t border-[#1a1a2e]/10 align-top">
               <th scope="row" className="py-3 pr-4 text-left font-medium">
                 {t.label}
                 <span className="block text-xs font-normal text-[#64748b]">{TYPE_BASES[t.type] ? `/${TYPE_BASES[t.type]}/<slug>/` : '/<slug>/'}</span>
@@ -311,22 +335,20 @@ function TypeTemplates({ value, off, templates, onChange, onListings }: { value:
               <td className="py-3 pr-4">{pick(t.type, 'single')}</td>
               <td className="py-3">
                 {ARCHIVE_PATHS[t.type] ? (
-                  <>
-                    <label className="mb-2 flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={!off.includes(t.type)} onChange={(e) => onListings(e.target.checked ? off.filter((x) => x !== t.type) : [...off, t.type])} />
-                      On at {ARCHIVE_PATHS[t.type]}
-                    </label>
-                    {off.includes(t.type) ? (
-                      <span className="block text-xs text-[#64748b]">Off: the address shows a page with that address, if there is one, or Not found.{t.type === 'event' ? ' The calendar views (month, day, past) are off too.' : ''}</span>
-                    ) : (
-                      pick(t.type, 'archive')
-                    )}
-                  </>
+                  pick(t.type, 'archive', {
+                    off: off.includes(t.type),
+                    setOff: (on) => onListings(on ? [...off, t.type] : off.filter((x) => x !== t.type)),
+                    note: off.includes(t.type)
+                      ? `Off: ${ARCHIVE_PATHS[t.type]} shows a page with that address, if there is one, or Not found.${t.type === 'event' ? ' The calendar views (month, day, past) are off too.' : ''}`
+                      : `At ${ARCHIVE_PATHS[t.type]}`,
+                    extra: <PageDefaults kind="listing" name={t.type} label={t.label} path={ARCHIVE_PATHS[t.type]} value={meta[t.type] ?? {}} onChange={(m) => setMeta(t.type, m)} />,
+                  })
                 ) : (
                   <span className="text-xs text-[#64748b]">No listing page</span>
                 )}
               </td>
             </tr>
+            </Fragment>
           ))}
         </tbody>
       </table>
@@ -334,14 +356,87 @@ function TypeTemplates({ value, off, templates, onChange, onListings }: { value:
   );
 }
 
-/** Settings > Types: the template for each taxonomy's term pages (a term can choose its own). */
-function TaxonomyTemplatesPanel({ value, off, templates, onChange, onPages }: { value: Record<string, string>; off: string[]; templates: TemplateInfo[]; onChange: (m: Record<string, string>) => void; onPages: (off: string[]) => void }) {
+/**
+ * Featured image and SEO for pages that aren't entries: a taxonomy's defaults for its term pages ({term}:
+ * the term's name), or a type's listing page. A "SEO" button beside the template's Edit opens it in a
+ * dialog; its changes are part of the form, saved with Save settings.
+ */
+function PageDefaults({ kind, name, label, path, value, onChange }: { kind: 'taxonomy' | 'listing'; name: string; label: string; path?: string; value: TaxonomyMeta; onChange: (m: TaxonomyMeta) => void }) {
+  const [writing, setWriting] = useState('');
+  // Fill the title and description patterns from Claude, for review before Save settings.
+  const write = async () => {
+    setWriting('Writing…');
+    const res = await fetch('/api/admin/meta-compose', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(kind === 'taxonomy' ? { taxonomy: name } : { type: name }) });
+    if (!res.ok) return setWriting(`Not written: ${await res.text()}`);
+    const out = await res.json();
+    setSeo({ ...(out.title ? { title: out.title } : {}), ...(out.description ? { description: out.description } : {}) });
+    setWriting('Filled in by Claude: check it, then Done and Save settings.');
+  };
+  const seo = value.seo ?? {};
+  const dialog = useRef<HTMLDialogElement>(null);
+  const set = !!(value.image || value.seo);
+  const what = kind === 'taxonomy' ? `${label} term pages` : `${label} listing page`;
+  const setSeo = (patch: Record<string, unknown>) => {
+    const next: Record<string, any> = { ...seo, ...patch };
+    for (const k of Object.keys(next)) if (next[k] === '' || next[k] === false || next[k] === undefined) delete next[k];
+    onChange({ ...value, seo: Object.keys(next).length ? next : undefined });
+  };
+  return (
+    <>
+    <button type="button" className="shrink-0 text-xs text-[#b87333] hover:underline" aria-label={`${what}: featured image and SEO`} onClick={() => dialog.current?.showModal()}>
+      SEO{set && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[#b87333] align-middle" aria-label="(set)" />}
+    </button>
+    <dialog ref={dialog} aria-labelledby={`meta-${kind}-${name}`} className="m-auto max-h-[90vh] w-[min(36rem,95vw)] rounded-sm p-0 shadow-xl backdrop:bg-black/40">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#1a1a2e]/10 bg-white px-5 py-3">
+        <h2 id={`meta-${kind}-${name}`} className="text-base font-semibold">
+          {what}: featured image and SEO
+        </h2>
+        <button type="button" onClick={() => dialog.current?.close()} className="shrink-0 rounded-sm bg-[#1a1a2e] px-3 py-1 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">
+          Done
+        </button>
+      </div>
+      <div className="p-5">
+      {kind === 'taxonomy' ? (
+        <p className="mb-3 text-xs text-[#64748b]">Defaults for {label.toLowerCase()} term pages; a term's own (Content &gt; Taxonomies, Details) come first, and for the meta description, so does the term's description. In the title and description, {'{term}'} is replaced by the term's name.</p>
+      ) : (
+        <p className="mb-3 text-xs text-[#64748b]">For the {label.toLowerCase()} listing at {path}. The image is its share image and shows in a Featured image block on it (outside a collection).{name === 'event' ? ' The calendar views (month, day, past) keep their own titles and get the image and noindex.' : ''}</p>
+      )}
+      <MediaPicker title="Featured image" url={value.image_url} onSelect={(m) => onChange({ ...value, image: m.id ?? m.mediaId ?? undefined, image_url: m.url })} />
+      {!!value.image && (
+        <button type="button" className="-mt-2 mb-2 text-xs text-[#b3261e]" onClick={() => onChange({ ...value, image: undefined, image_url: undefined })}>
+          Remove featured image
+        </button>
+      )}
+      <Text title="Search title" value={seo.title ?? ''} placeholder={kind === 'taxonomy' ? "{term} – the term's name when empty" : label} onChange={(v) => setSeo({ title: v })} />
+      <Row title="Meta description">
+        <textarea className={inputClass} rows={3} value={seo.description ?? ''} placeholder={kind === 'taxonomy' ? 'For terms without a description' : "The site's tagline when empty"} onChange={(e) => setSeo({ description: e.target.value })} />
+      </Row>
+      <div className="mb-3 flex items-center gap-3">
+        <button type="button" onClick={write} className="rounded-sm border border-[#1a1a2e]/20 bg-white px-3 py-1.5 text-xs font-semibold hover:border-[#1a1a2e]/50">
+          Write with Claude
+        </button>
+        {writing && (
+          <span className="text-xs text-[#64748b]" role="status">
+            {writing}
+          </span>
+        )}
+      </div>
+      <Toggle title={kind === 'taxonomy' ? 'Hide its term pages from search engines (noindex)' : 'Hide from search engines (noindex)'} value={!!seo.noindex} onChange={(v) => setSeo({ noindex: v })} />
+      <p className="mt-3 text-xs text-[#64748b]">Changes are saved with Save settings.</p>
+      </div>
+    </dialog>
+    </>
+  );
+}
+
+/** Settings > Types: the template for each taxonomy's term pages (a term can choose its own), and their default image and SEO. */
+function TaxonomyTemplatesPanel({ value, off, templates, meta, onChange, onPages, onMeta }: { value: Record<string, string>; off: string[]; templates: TemplateInfo[]; meta: Record<string, TaxonomyMeta>; onChange: (m: Record<string, string>) => void; onPages: (off: string[]) => void; onMeta: (m: Record<string, TaxonomyMeta>) => void }) {
   const have = new Set(templates.map((t) => t.slug));
   const taxonomies = config.taxonomies.filter((t) => t.base);
   return (
     <>
       <h3 className="mt-8 mb-1 text-sm font-semibold">Taxonomy pages</h3>
-      <p className="mb-3 text-xs text-[#64748b]">Each taxonomy's term pages: on or off, and their template. A term can choose its own template under Content &gt; Taxonomies, and the terms under it share it. With the pages off, terms still group and filter entries, shown without links.</p>
+      <p className="mb-3 text-xs text-[#64748b]">The template for each taxonomy's term pages; choose Off to turn them off. A term can choose its own template under Content &gt; Taxonomies, and the terms under it share it. With the pages off, terms still group and filter entries, shown without links.</p>
       <table className="w-full text-sm">
         <tbody>
           {taxonomies.map((t) => {
@@ -349,21 +444,17 @@ function TaxonomyTemplatesPanel({ value, off, templates, onChange, onPages }: { 
             const chosen = value[t.name];
             const shown = chosen && have.has(chosen) ? chosen : fallback;
             return (
-              <tr key={t.name} className="border-t border-[#1a1a2e]/10 align-top">
+              <Fragment key={t.name}>
+              <tr className="border-t border-[#1a1a2e]/10 align-top">
                 <th scope="row" className="py-3 pr-4 text-left font-medium">
                   {t.label}
                   <span className="block text-xs font-normal text-[#64748b]">/{t.base}/&lt;slug&gt;/</span>
                 </th>
                 <td className="py-3">
-                  <label className="mb-2 flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={!off.includes(t.name)} onChange={(e) => onPages(e.target.checked ? off.filter((x) => x !== t.name) : [...off, t.name])} />
-                    On at /{t.base}/&lt;slug&gt;/
-                  </label>
-                  {off.includes(t.name) ? (
-                    <span className="block text-xs text-[#64748b]">Off: those addresses show a page with that address, if there is one, or Not found.</span>
-                  ) : (
                   <div className="flex items-center gap-2">
-                    <select aria-label={`${t.label}: term page template`} className={inputClass} value={chosen ?? ''} onChange={(e) => {
+                    <select aria-label={`${t.label}: term page template`} className={inputClass} value={off.includes(t.name) ? OFF : (chosen ?? '')} onChange={(e) => {
+                      if (e.target.value === OFF) return onPages([...off, t.name]);
+                      if (off.includes(t.name)) onPages(off.filter((x) => x !== t.name));
                       const next = { ...value };
                       if (e.target.value) next[t.name] = e.target.value;
                       else delete next[t.name];
@@ -375,16 +466,26 @@ function TaxonomyTemplatesPanel({ value, off, templates, onChange, onPages }: { 
                           {templateLabel(tp)}
                         </option>
                       ))}
+                      <option value={OFF}>Off: no term pages</option>
                     </select>
-                    {shown && (
+                    {shown && !off.includes(t.name) && (
                       <a className="shrink-0 text-xs text-[#b87333] hover:underline" href={`/admin/templates/template/${shown}/`}>
                         Edit
                       </a>
                     )}
+                    {!off.includes(t.name) && (
+                      <PageDefaults kind="taxonomy" name={t.name} label={t.label} value={meta[t.name] ?? {}} onChange={(m) => {
+                        const next = { ...meta };
+                        if (m.image || (m.seo && Object.keys(m.seo).length)) next[t.name] = m;
+                        else delete next[t.name];
+                        onMeta(next);
+                      }} />
+                    )}
                   </div>
-                  )}
+                  <p className="mt-1 text-xs text-[#64748b]">{off.includes(t.name) ? 'Off: those addresses show a page with that address, if there is one, or Not found; terms still group and filter entries, shown without links.' : `At /${t.base}/<slug>/`}</p>
                 </td>
               </tr>
+              </Fragment>
             );
           })}
         </tbody>

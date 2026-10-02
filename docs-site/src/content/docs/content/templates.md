@@ -15,6 +15,9 @@ Templates without a **Page content** block are marked, and choosing one warns th
 won't show. Pages whose template has no Page content are edited in layout mode: the template document
 itself.
 
+Each listing page also has its own featured image and SEO there (see
+[SEO and social](../../features/seo-and-social/#listing-pages)).
+
 Listing pages can be turned off (`settings.site.listings_off`). The address then serves a page with
 that address, if any, or 404. For events, the calendar views go too.
 
