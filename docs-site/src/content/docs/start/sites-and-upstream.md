@@ -1,11 +1,11 @@
 ---
 title: Sites and upstream
-description: How a site repository relates to cms-core, and how core updates reach it.
+description: How a site repository relates to supapuck-cms, and how core updates reach it.
 sidebar:
   order: 3
 ---
 
-`cms-core` is the upstream. Each site is its own repository with `cms-core` as its `upstream`
+`supapuck-cms` is the upstream. Each site is its own repository with `supapuck-cms` as its `upstream`
 remote. Its history starts from the core's, with a commit that swaps the example `src/site/` for its
 own.
 
@@ -61,7 +61,7 @@ npx supabase migration up --include-all       # local
 ## Sending a fix upstream
 
 A core bug found while working on a site can be fixed there: commit the fix on its own, touching core
-files only, then `git cherry-pick` it into `cms-core`.
+files only, then `git cherry-pick` it into `supapuck-cms`.
 
 ## Rules for core code
 

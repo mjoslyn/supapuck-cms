@@ -1,4 +1,4 @@
-# cms-core
+# supapuck-cms
 
 A CMS for small organisation sites (chambers of commerce, towns, venues, clubs): Astro rendering on
 Netlify, content in Supabase, the Puck visual editor, and Compose, which writes pages with Claude from

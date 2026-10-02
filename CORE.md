@@ -1,4 +1,4 @@
-# cms-core: the core (Astro + Puck + Supabase)
+# supapuck-cms: the core (Astro + Puck + Supabase)
 
 A CMS for small organisation sites: Astro SSR on Netlify, content in Supabase, a Puck visual editor,
 and Compose (pages written with Claude from documents, images and links). The code is split into the
