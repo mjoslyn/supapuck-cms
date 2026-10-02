@@ -26,6 +26,14 @@ Images render as `<picture>` with AVIF and WebP sources (`src/lib/media/image.ts
 `src/lib/media/modernize.ts` does the same for plain `/media/` images and inline backgrounds in the
 final HTML.
 
+## Images are never deleted
+
+The CMS never deletes or overwrites a stored image. The library has no delete; a sync restore or snapshot
+restore that removes a file's library row leaves its images in storage; and an upload takes a name that
+no library row or stored file already starts with, so it can't overwrite images kept that way. Re-crops
+rewrite only the cropped sizes, which can be made again from the original. Backups hold library rows,
+not images (see [Sync](../sync/#backups-and-snapshots)).
+
 ## Existing media
 
 `scripts/media-formats.ts` backfills the AVIF and WebP copies; `processed_at` marks the files done.

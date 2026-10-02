@@ -17,13 +17,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const dot = base.lastIndexOf('.');
   // A free name: no stored file may start with its family name (the name without an ending the sizes
   // use, "-300x300" or "-scaled"). So photo-300x300.jpg can't take the place of photo.jpg's thumbnail,
-  // and photo.jpg's sizes can't take the place of an upload named photo-300x300.jpg.
+  // and photo.jpg's sizes can't take the place of an upload named photo-300x300.jpg. Storage is checked
+  // as well as the library: a file whose library row a restore deleted keeps its images (they aren't in
+  // backups), and an upload must never overwrite them.
   const family = (p: string) => p.replace(/\.[a-z0-9]+$/, '').replace(/(-\d+x\d+)?(-scaled)?$/, '');
+  const stored = serviceClient().storage.from('media');
+  const taken = async (p: string) => {
+    const { data } = await db.from('media').select('id').like('path', `${family(p)}%`).limit(1).maybeSingle();
+    if (data) return true;
+    const name = family(p).slice(dir.length + 1);
+    const { data: files, error } = await stored.list(dir, { search: name, limit: 1000 });
+    if (error) throw new Error(`Could not check the name: ${error.message}`);
+    return (files ?? []).some((f) => f.name.startsWith(name));
+  };
   let path = `${dir}/${base}`;
-  for (let n = 1; ; n++) {
-    const { data } = await db.from('media').select('id').like('path', `${family(path)}%`).limit(1).maybeSingle();
-    if (!data) break;
-    path = `${dir}/${base.slice(0, dot)}-${n}${base.slice(dot)}`;
+  try {
+    for (let n = 1; await taken(path); n++) path = `${dir}/${base.slice(0, dot)}-${n}${base.slice(dot)}`;
+  } catch (e) {
+    return new Response((e as Error).message, { status: 400 });
   }
   if (isVideo) {
     try {

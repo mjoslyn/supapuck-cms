@@ -347,6 +347,11 @@ AVIF/WebP sources; `src/lib/media/modernize.ts` does the same for plain `/media/
 backgrounds in the final HTML. Existing media: `scripts/media-formats.ts` backfills the copies
 (`processed_at` marks done).
 
+Stored images are never deleted or overwritten by the CMS: the library has no delete, a restore that
+removes a file's library row leaves its images in storage (backups hold rows, not images, so undoing
+the restore finds them again), and an upload takes a name no library row or stored file already starts
+with. Re-crops rewrite only the cropped sizes, which can be made again from the original.
+
 ## Forms
 
 Form builder at `/admin/forms/` (`src/forms/FormBuilder.tsx`). Forms live in the `forms` table
