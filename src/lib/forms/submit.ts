@@ -3,7 +3,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Field, FormDef, FormResult, FormRow, NamePart, Notification, Values } from './types';
 import { HONEYPOT, INPUT_TYPES, NAME_LABELS, displayValue, isFieldHidden, visibleNameParts } from './logic';
-import { sendMail } from './mail';
+import { sendMail, textVersion } from './mail';
+import { renderEmail } from './email';
 import { Loader } from '../data';
 import { permalink } from '../permalink';
 import { serviceClient } from '../supabase';
@@ -118,25 +119,49 @@ function allFields(def: FormDef, values: Values, html: boolean): string {
   );
 }
 
-async function notify(row: FormRow, values: Values) {
+/** One field's answer as email HTML: its label in bold above it, or the answer alone. */
+function fieldHtml(def: FormDef, values: Values, id: string, showLabel: boolean): string {
+  if (id === 'all') return allFields(def, values, true);
+  const f = def.fields.find((x) => x.id === id);
+  if (!f || isFieldHidden(def, f, values)) return '';
+  const v = escHtml(displayValue(f, values)).replace(/\n/g, '<br />');
+  if (!v) return '';
+  return showLabel ? `<p style="margin:0 0 4px 0;font-weight:600">${escHtml(f.label)}</p><p style="margin:0">${v}</p>` : `<p style="margin:0">${v}</p>`;
+}
+
+/** A notification as it would be sent for these values: recipients, reply-to, subject, HTML and text. */
+export function renderNotification(row: FormRow, n: Notification, values: Values, origin: string) {
   const adminEmail = env('FORMS_ADMIN_EMAIL') || site.adminEmail;
   const visitorEmail = row.definition.fields.find((f) => f.type === 'email' && typeof values[f.id] === 'string');
+  const to = mergeTags(n.to, row, values, { html: false, adminEmail })
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter((s) => EMAIL.test(s));
+  const replyTo = n.replyTo ? mergeTags(n.replyTo, row, values, { html: false, adminEmail }) : visitorEmail ? String(values[visitorEmail.id]) : undefined;
+  const subject = mergeTags(n.subject || `New submission: ${row.title}`, row, values, { html: false, adminEmail });
+  // The builder's design; a notification from before it sends its message as it always has.
+  const html = n.design
+    ? renderEmail(
+        n.design,
+        {
+          merge: (text, html) => mergeTags(text, row, values, { html, adminEmail }),
+          field: (id, showLabel) => fieldHtml(row.definition, values, id, showLabel),
+          origin,
+        },
+        subject,
+      )
+    : emailBody(n.message || '{all_fields}', mergeTags(n.message || '{all_fields}', row, values, { html: true, adminEmail }));
+  const text = n.text?.trim() ? mergeTags(n.text, row, values, { html: false, adminEmail }) : textVersion(html);
+  return { to, replyTo: replyTo && EMAIL.test(replyTo) ? replyTo : undefined, subject, html, text, fromName: n.fromName || undefined };
+}
+
+async function notify(row: FormRow, values: Values, origin: string) {
   for (const n of (row.notifications ?? []) as Notification[]) {
     if (n.active === false) continue;
-    const to = mergeTags(n.to, row, values, { html: false, adminEmail })
-      .split(/[,;]/)
-      .map((s) => s.trim())
-      .filter((s) => EMAIL.test(s));
-    if (!to.length) continue;
-    const replyTo = n.replyTo ? mergeTags(n.replyTo, row, values, { html: false, adminEmail }) : visitorEmail ? String(values[visitorEmail.id]) : undefined;
+    const mail = renderNotification(row, n, values, origin);
+    if (!mail.to.length) continue;
     try {
-      await sendMail({
-        to,
-        subject: mergeTags(n.subject || `New submission: ${row.title}`, row, values, { html: false, adminEmail }),
-        html: emailBody(n.message || '{all_fields}', mergeTags(n.message || '{all_fields}', row, values, { html: true, adminEmail })),
-        replyTo: replyTo && EMAIL.test(replyTo) ? replyTo : undefined,
-        fromName: n.fromName || undefined,
-      });
+      await sendMail(mail);
     } catch (e) {
       // The submission is stored either way; a mail outage shouldn't lose it or show the visitor an error.
       console.error(`form ${row.id}: notification "${n.name}" failed`, e);
@@ -179,7 +204,7 @@ export async function handleFormPost(data: FormData, request: Request): Promise<
     data: { entry, values: labelled, referrer: request.headers.get('referer'), user_agent: request.headers.get('user-agent') },
   });
   if (insertError) throw insertError;
-  await notify(form, entry);
+  await notify(form, entry, new URL(request.url).origin);
 
   const adminEmail = env('FORMS_ADMIN_EMAIL') || site.adminEmail;
   if (confirmation.type === 'redirect' && confirmation.url) return { formId, ok: true, message: '', errors: {}, values: {}, redirect: mergeTags(confirmation.url, form, entry, { html: false, adminEmail }) };

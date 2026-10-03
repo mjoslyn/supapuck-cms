@@ -387,7 +387,15 @@ confirmation), notification settings in a column anon can't read. The markup com
 logic, US phone formatting and character counters; everything is validated on the server). Place forms
 with the `form` block. Submissions POST back to the page (`src/lib/forms/submit.ts`: validation that
 skips fields hidden by conditional logic, honeypot, storage, notifications to the form's addresses or
-`FORMS_ADMIN_EMAIL` / the config's `adminEmail`). Mail goes out over SMTP
+`FORMS_ADMIN_EMAIL` / the config's `adminEmail`). A notification's email is built in the email builder
+(`src/forms/EmailBuilder.tsx`, opened by Edit email): a Puck document (`Notification.design`) of email
+blocks (Heading, Text, Button, Image, Form field (one answer, or all as a table), Section, Two columns,
+Divider, Spacer) that `src/lib/forms/email.ts` renders to email-safe HTML (tables, inline styles, a 600px
+body, a preheader, columns stacking on phones; text kept to paragraphs, emphasis, links and lists), the
+canvas included. Its Plain text tab (`Notification.text`, merge tags allowed) is the text part; empty,
+the text is made from the HTML. Its Preview tab renders the email as sent (`renderNotification`, the
+code that sends it) for a stored submission or sample answers (`/api/admin/forms/<id>/notification-preview`).
+Notifications from before the builder send their message as before until opened there. Mail goes out over SMTP
 (`SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`SMTP_SECURE`, or one `SMTP_URL`; sender `MAIL_FROM`,
 default `mailFrom` in the site config).
 

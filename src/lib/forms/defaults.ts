@@ -1,4 +1,5 @@
 // New forms and fields as the builder creates them (./types.ts).
+import { defaultEmail } from './email';
 import type { Field, FieldType, FormDef, Notification } from './types';
 
 export function newForm(id: number, title: string): FormDef {
@@ -19,6 +20,7 @@ export const defaultNotification = (): Notification => ({
   to: '{admin_email}',
   subject: 'New submission from {form_title}',
   message: '{all_fields}',
+  design: defaultEmail(),
 });
 
 export const FIELD_TYPES: { type: FieldType; label: string; group: 'Standard' | 'Advanced' | 'Layout' }[] = [

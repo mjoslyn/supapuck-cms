@@ -1,3 +1,4 @@
+import type { EmailDoc } from './email';
 // Form definitions (forms.definition) and submissions. Field ids are short strings ("f1"); a field
 // posts under its id ("f1"), with parts for names ("f1[first]") and lists for checkboxes ("f1[]").
 
@@ -88,7 +89,12 @@ export interface Notification {
   /** Comma-separated addresses; merge tags allowed ({admin_email}, {Email:f3}). */
   to: string;
   subject: string;
+  /** The message from before the email builder (rich text with merge tags); used when there is no design. */
   message: string;
+  /** The email as built in the email builder (src/lib/forms/email.ts). */
+  design?: EmailDoc;
+  /** The plain-text version, with merge tags; made from the design when empty. */
+  text?: string;
   replyTo?: string;
   fromName?: string;
 }

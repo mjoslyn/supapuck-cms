@@ -32,6 +32,35 @@ Submissions POST back to the page (`src/lib/forms/submit.ts`):
 3. Storage
 4. Notifications to the form's addresses, else `FORMS_ADMIN_EMAIL`, else the config's `adminEmail`
 
+## Notification emails
+
+Each notification's email is built in the **email builder** (Notifications, **Edit email**), a visual
+editor like the page editor with blocks made for email:
+
+| Block | Shows |
+| --- | --- |
+| Heading, Text | Text, with field values (Insert field value, or tags like `{Email:f3}`) |
+| Button | A link styled as a button (a field tag works as the link, such as `mailto:{Email:f3}`) |
+| Image | An image from the media library, optionally linked |
+| Form field | One answer, with or without its label, or every answer as a table |
+| Section | A box with a background and padding, holding other blocks |
+| Two columns | Blocks side by side, stacked on phones |
+| Divider, Spacer | A line, or space |
+
+The email's settings (the page) set its background, text and link colours, font, width and the
+preview text inbox lists show after the subject.
+
+What the builder shows is what is sent: email-safe HTML laid out with tables and inline styles, 600px
+wide, with text kept to what mail apps show the same.
+
+- **Plain text**: the text version, for mail apps that don't show HTML, with field values. Left empty,
+  it is made from the visual design. **Fill from the visual design** starts from it.
+- **Preview**: the email as it would be sent (recipients, reply-to, subject, the HTML at desktop and
+  phone widths, and the text) for any stored submission, or for sample answers.
+
+Notifications from before the builder keep sending their message as it was until they are opened in
+the builder, which turns it into blocks.
+
 ## Mail
 
 Mail goes out over SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`, or one

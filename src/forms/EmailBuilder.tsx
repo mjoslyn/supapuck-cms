@@ -1,0 +1,343 @@
+// The email builder for a form notification, full screen over the form builder. Visual: a Puck editor of
+// email blocks (src/lib/forms/email.ts renders them, here and when sending, so the canvas is the email).
+// Plain text: the text version, with field values; made from the design when empty. Preview: the email
+// as it would be sent for a stored submission or sample answers (/api/admin/forms/<id>/notification-preview).
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Puck, type Config, type Data } from '@puckeditor/core';
+import '@puckeditor/core/puck.css';
+import { EMAIL_DEFAULTS, defaultEmail, renderBlock, renderEmail, textVersion, type EmailContext, type EmailDoc, type EmailItem, type EmailRoot } from '../lib/forms/email';
+import { INPUT_TYPES } from '../lib/forms/logic';
+import type { FormDef, Notification } from '../lib/forms/types';
+import { MediaPicker } from '../puck/fields';
+import { MergeTags, RichMessage } from './rich-message';
+
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+const fieldsOf = (form: FormDef) => form.fields.filter((f) => INPUT_TYPES.includes(f.type) && f.type !== 'hidden');
+
+/** The canvas's stand-ins for what a submission fills in: tags shown as written, answers as their labels. */
+function canvasContext(form: FormDef): EmailContext {
+  const answer = (label: string) => `<span style="background:#fef3c7;color:#7a4a00;padding:0 3px;border-radius:2px">${esc(label)}</span>`;
+  return {
+    merge: (text) => text,
+    field: (id, showLabel) => {
+      if (id === 'all')
+        return `<table width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:14px">${fieldsOf(form)
+          .map((f) => `<tr><td style="background:#f5f3f0;font-weight:600;border-bottom:1px solid #e5e1dc">${esc(f.label)}</td></tr><tr><td style="padding-bottom:14px;border-bottom:1px solid #e5e1dc">${answer(`${f.label} answer`)}</td></tr>`)
+          .join('') || '<tr><td>(The form has no fields yet.)</td></tr>'}</table>`;
+      const f = form.fields.find((x) => x.id === id);
+      if (!f) return '<p style="margin:0;color:#b3261e">Choose a field.</p>';
+      return showLabel ? `<p style="margin:0 0 4px 0;font-weight:600">${esc(f.label)}</p><p style="margin:0">${answer(`${f.label} answer`)}</p>` : `<p style="margin:0">${answer(`${f.label} answer`)}</p>`;
+    },
+    origin: typeof window === 'undefined' ? '' : window.location.origin,
+  };
+}
+
+/** What the plain-text version starts from: the design, with field tags where answers go. */
+function textFromDesign(doc: EmailDoc, form: FormDef): string {
+  const html = renderEmail(doc, {
+    merge: (text) => text,
+    field: (id, showLabel) => {
+      if (id === 'all') return '{all_fields}';
+      const f = form.fields.find((x) => x.id === id);
+      return f ? `<p>${showLabel ? `${esc(f.label)}: ` : ''}{${esc(f.label)}:${f.id}}</p>` : '';
+    },
+    origin: window.location.origin,
+  });
+  return textVersion(html.replace(/<div style="display:none[^"]*">[\s\S]*?<\/div>/, ''));
+}
+
+// The document's settings, for the blocks rendered inside it.
+const RootProps = createContext<EmailRoot>({});
+const FormContext = createContext<FormDef | null>(null);
+
+/** A leaf block: its email HTML, as sent. */
+function Leaf({ type, props }: { type: string; props: Record<string, any> }) {
+  const root = useContext(RootProps);
+  const form = useContext(FormContext)!;
+  const html = renderBlock({ type, props: { id: '', ...props } } as EmailItem, canvasContext(form), root);
+  return <div dangerouslySetInnerHTML={{ __html: html || '<p style="margin:0;color:#94a3b8;font-size:13px">(empty)</p>' }} />;
+}
+
+function ColorField({ label, value, onChange, fallback }: { label: string; value?: string; onChange: (v: string | undefined) => void; fallback: string }) {
+  return (
+    <div>
+    <div className="mb-1.5 text-sm font-medium text-[#3b3b3b]">{label}</div>
+    <div className="flex items-center gap-2">
+      <input type="color" value={value && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback} onChange={(e) => onChange(e.target.value)} className="h-8 w-10 cursor-pointer rounded border border-[#1a1a2e]/15" />
+      <input type="text" aria-label={label} value={value ?? ''} placeholder={fallback} onChange={(e) => onChange(e.target.value || undefined)} className="w-full rounded border border-[#1a1a2e]/15 px-2 py-1 text-sm" />
+    </div>
+    </div>
+  );
+}
+const color = (label: string, fallback: string) => ({ type: 'custom' as const, label, render: ({ value, onChange }: any) => <ColorField label={label} value={value} onChange={onChange} fallback={fallback} /> });
+const alignField = { type: 'radio' as const, label: 'Align', options: [{ label: 'Left', value: 'left' }, { label: 'Centre', value: 'center' }, { label: 'Right', value: 'right' }] };
+
+function emailConfig(form: FormDef): Config {
+  const leaf = (type: string) => (props: any) => <Leaf type={type} props={props} />;
+  return {
+    categories: {
+      content: { title: 'Content', components: ['Heading', 'Text', 'Button', 'Image', 'FormField'] },
+      layout: { title: 'Layout', components: ['Section', 'Columns', 'Divider', 'Spacer'] },
+    },
+    root: {
+      fields: {
+        preheader: { type: 'text', label: 'Preview text (after the subject in the inbox)' },
+        background: color('Page background', EMAIL_DEFAULTS.background),
+        contentBackground: color('Email background', EMAIL_DEFAULTS.contentBackground),
+        textColor: color('Text colour', EMAIL_DEFAULTS.textColor),
+        linkColor: color('Link and button colour', EMAIL_DEFAULTS.linkColor),
+        fontFamily: {
+          type: 'select',
+          label: 'Font',
+          options: [
+            { label: 'Helvetica / Arial', value: 'Helvetica, Arial, sans-serif' },
+            { label: 'Georgia (serif)', value: "Georgia, 'Times New Roman', serif" },
+            { label: 'Verdana', value: 'Verdana, Geneva, sans-serif' },
+            { label: 'Trebuchet', value: "'Trebuchet MS', Helvetica, sans-serif" },
+          ],
+        },
+        width: { type: 'number', label: 'Width (px)', min: 320, max: 800 },
+      },
+      render: ({ children, ...p }: any) => {
+        const r = { ...EMAIL_DEFAULTS, ...Object.fromEntries(Object.entries(p).filter(([k, v]) => k !== 'puck' && v !== undefined && v !== '')) } as typeof EMAIL_DEFAULTS & EmailRoot;
+        return (
+          <RootProps.Provider value={p}>
+            <div style={{ background: r.background, padding: '24px 12px', minHeight: '100%' }}>
+              <div style={{ maxWidth: Number(r.width) || 600, margin: '0 auto', background: r.contentBackground, padding: 32, fontFamily: r.fontFamily, color: r.textColor, fontSize: 16, lineHeight: 1.55 }}>{children}</div>
+            </div>
+          </RootProps.Provider>
+        );
+      },
+    },
+    components: {
+      Heading: {
+        label: 'Heading',
+        fields: { text: { type: 'text', label: 'Text (field tags allowed)' }, level: { type: 'select', label: 'Size', options: [{ label: 'Large', value: 1 }, { label: 'Medium', value: 2 }, { label: 'Small', value: 3 }] }, align: alignField, color: color('Colour', EMAIL_DEFAULTS.textColor) },
+        defaultProps: { text: 'Heading', level: 2, align: 'left' },
+        render: leaf('Heading'),
+      },
+      Text: {
+        label: 'Text',
+        fields: {
+          html: { type: 'custom', label: 'Text', render: ({ value, onChange }: any) => <RichMessage label="Text" value={value} form={form} onChange={onChange} /> },
+          align: alignField,
+          color: color('Colour', EMAIL_DEFAULTS.textColor),
+        },
+        defaultProps: { html: '<p>Write something here.</p>', align: 'left' },
+        render: leaf('Text'),
+      },
+      Button: {
+        label: 'Button',
+        fields: { label: { type: 'text', label: 'Label' }, url: { type: 'text', label: 'Link (https://, mailto:, a /path, or a field tag)' }, align: alignField, background: color('Button colour', EMAIL_DEFAULTS.linkColor), color: color('Label colour', '#ffffff') },
+        defaultProps: { label: 'Open', url: '', align: 'left' },
+        render: leaf('Button'),
+      },
+      Image: {
+        label: 'Image',
+        fields: {
+          src: { type: 'custom', label: 'Image', render: ({ value, onChange }: any) => <MediaPicker title="Image" url={value} onSelect={(m) => onChange(m.url)} /> },
+          alt: { type: 'text', label: 'Alt text' },
+          width: { type: 'number', label: 'Width (px)', min: 20, max: 800 },
+          href: { type: 'text', label: 'Link (optional)' },
+          align: alignField,
+        },
+        defaultProps: { src: '', alt: '', align: 'center' },
+        render: leaf('Image'),
+      },
+      FormField: {
+        label: 'Form field',
+        fields: {
+          field: { type: 'select', label: 'Field', options: [{ label: 'All fields (a table)', value: 'all' }, ...fieldsOf(form).map((f) => ({ label: f.label || f.id, value: f.id }))] },
+          showLabel: { type: 'radio', label: 'Show its label', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+        },
+        defaultProps: { field: 'all', showLabel: true },
+        render: leaf('FormField'),
+      },
+      Divider: { label: 'Divider', fields: { color: color('Colour', '#e5e1dc') }, defaultProps: {}, render: leaf('Divider') },
+      Spacer: { label: 'Spacer', fields: { height: { type: 'number', label: 'Height (px)', min: 4, max: 200 } }, defaultProps: { height: 24 }, render: leaf('Spacer') },
+      Section: {
+        label: 'Section',
+        fields: { background: color('Background', '#f5f3f0'), padding: { type: 'number', label: 'Padding (px)', min: 0, max: 80 }, radius: { type: 'number', label: 'Corner radius (px)', min: 0, max: 24 }, content: { type: 'slot', disallow: ['Section'] } },
+        defaultProps: { background: '#f5f3f0', padding: 24, radius: 0, content: [] },
+        render: ({ background, padding, radius, content: Content }: any) => (
+          <div style={{ background, padding: Number(padding) || 0, borderRadius: Number(radius) || 0, marginBottom: 12 }}>
+            <Content />
+          </div>
+        ),
+      },
+      Columns: {
+        label: 'Two columns',
+        fields: { gap: { type: 'number', label: 'Gap (px)', min: 0, max: 60 }, left: { type: 'slot', disallow: ['Columns', 'Section'] }, right: { type: 'slot', disallow: ['Columns', 'Section'] } },
+        defaultProps: { gap: 24, left: [], right: [] },
+        render: ({ gap, left: Left, right: Right }: any) => (
+          <div style={{ display: 'flex', gap: Number(gap) || 0 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Left />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Right />
+            </div>
+          </div>
+        ),
+      },
+    },
+  } as Config;
+}
+
+// The canvas at email widths (the 600px email with its margins, and a phone), so it shows at full size.
+const EMAIL_VIEWPORTS = [
+  { width: 700, height: 'auto' as const, label: 'Email', icon: 'Monitor' as const },
+  { width: 390, height: 'auto' as const, label: 'Phone', icon: 'Smartphone' as const },
+];
+
+const tabCls = (on: boolean) => `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${on ? 'border-[#b87333] text-[#1a1a2e]' : 'border-transparent text-[#64748b] hover:text-[#1a1a2e]'}`;
+
+export default function EmailBuilder({ formId, form, notification, onChange, onClose }: { formId: number; form: FormDef; notification: Notification; onChange: (patch: Partial<Notification>) => void; onClose: () => void }) {
+  const [tab, setTab] = useState<'visual' | 'text' | 'preview'>('visual');
+  const config = useMemo(() => emailConfig(form), [form]);
+  // Puck keeps its own state; it starts from the design and reports every change.
+  const initial = useRef<Data>((notification.design ?? defaultEmail()) as unknown as Data);
+  const design = (notification.design ?? (initial.current as unknown as EmailDoc)) as EmailDoc;
+
+  return (
+    <div className="fixed inset-0 z-[900] flex flex-col bg-white" role="dialog" aria-modal="true" aria-label={`Email: ${notification.name || 'Notification'}`}>
+      <div className="flex items-center justify-between gap-4 border-b border-[#1a1a2e]/10 px-4">
+        <div className="flex items-end gap-1">
+          <span className="mr-4 py-2 text-sm font-semibold">{notification.name || 'Notification'}: email</span>
+          {(['visual', 'text', 'preview'] as const).map((t) => (
+            <button key={t} type="button" className={tabCls(tab === t)} onClick={() => setTab(t)}>
+              {t === 'visual' ? 'Visual' : t === 'text' ? 'Plain text' : 'Preview'}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3 py-2">
+          <span className="text-xs text-[#64748b]">Changes are saved with the form.</span>
+          <button type="button" onClick={onClose} className="rounded-sm bg-[#1a1a2e] px-4 py-1.5 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">
+            Done
+          </button>
+        </div>
+      </div>
+      <div className="min-h-0 flex-1">
+        <div className={tab === 'visual' ? 'h-full' : 'hidden'}>
+          <FormContext.Provider value={form}>
+            {/* Changes go to the form as they are made (saved with it), so Puck's own Publish is left out. */}
+            <Puck config={config} data={initial.current} onChange={(d: Data) => onChange({ design: d as unknown as EmailDoc })} headerTitle={'\u200b'} overrides={{ headerActions: () => <></> }} viewports={EMAIL_VIEWPORTS} />
+          </FormContext.Provider>
+        </div>
+        {tab === 'text' && <PlainText form={form} design={design} value={notification.text ?? ''} onChange={(text) => onChange({ text: text || undefined })} />}
+        {tab === 'preview' && <Preview formId={formId} form={form} notification={{ ...notification, design }} />}
+      </div>
+    </div>
+  );
+}
+
+function PlainText({ form, design, value, onChange }: { form: FormDef; design: EmailDoc; value: string; onChange: (v: string) => void }) {
+  const area = useRef<HTMLTextAreaElement>(null);
+  const insert = (tag: string) => {
+    const el = area.current;
+    if (!el) return onChange(value + tag);
+    const [a, b] = [el.selectionStart, el.selectionEnd];
+    onChange(value.slice(0, a) + tag + value.slice(b));
+    requestAnimationFrame(() => (el.focus(), el.setSelectionRange(a + tag.length, a + tag.length)));
+  };
+  return (
+    <div className="mx-auto flex h-full max-w-3xl flex-col p-6">
+      <p className="mb-3 text-sm text-[#475569]">
+        The plain-text version, for mail apps that don't show HTML. Left empty, it is made from the visual design when the email is sent.
+      </p>
+      <div className="mb-2 flex flex-wrap items-center gap-3">
+        <MergeTags form={form} onInsert={insert} />
+        <button type="button" className="rounded border border-[#1a1a2e]/15 bg-white px-2.5 py-1 text-xs hover:border-[#b87333]" onClick={() => (!value || confirm('Replace the plain text with one made from the visual design?')) && onChange(textFromDesign(design, form))}>
+          Fill from the visual design
+        </button>
+        {value && (
+          <button type="button" className="text-xs text-[#b3261e]" onClick={() => confirm('Clear the plain text? It will be made from the visual design.') && onChange('')}>
+            Clear
+          </button>
+        )}
+      </div>
+      <textarea ref={area} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Made from the visual design when empty." className="min-h-0 flex-1 rounded border border-[#1a1a2e]/15 p-3 font-mono text-sm outline-none focus:border-[#b87333]" />
+    </div>
+  );
+}
+
+interface Rendered {
+  to: string[];
+  replyTo?: string;
+  subject: string;
+  html: string;
+  text: string;
+  fromName?: string;
+}
+
+function Preview({ formId, form, notification }: { formId: number; form: FormDef; notification: Notification }) {
+  const [subs, setSubs] = useState<{ id: number; created_at: string; summary: string }[] | null>(null);
+  const [pick, setPick] = useState('');
+  const [out, setOut] = useState<Rendered | null>(null);
+  const [error, setError] = useState('');
+  const [width, setWidth] = useState<'desktop' | 'phone'>('desktop');
+  useEffect(() => {
+    fetch(`/api/admin/forms/${formId}/notification-preview`)
+      .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error(await r.text()))))
+      .then(setSubs, (e) => setError(e.message));
+  }, [formId]);
+  useEffect(() => {
+    setError('');
+    fetch(`/api/admin/forms/${formId}/notification-preview`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification, definition: form, submissionId: pick ? Number(pick) : null }) })
+      .then(async (r) => (r.ok ? r.json() : Promise.reject(new Error(await r.text()))))
+      .then(setOut, (e) => setError(e.message));
+  }, [pick, formId]);
+  const when = (s: string) => new Date(s).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return (
+    <div className="flex h-full min-h-0">
+      <div className="flex min-w-0 flex-1 flex-col bg-[#f1efeb]">
+        <div className="flex flex-wrap items-center gap-3 border-b border-[#1a1a2e]/10 bg-white px-4 py-2 text-sm">
+          <label className="flex items-center gap-2">
+            <span className="text-xs text-[#64748b]">Answers from</span>
+            <select value={pick} onChange={(e) => setPick(e.target.value)} className="rounded border border-[#1a1a2e]/15 px-2 py-1 text-sm">
+              <option value="">Sample answers</option>
+              {(subs ?? []).map((s) => (
+                <option key={s.id} value={s.id}>
+                  {when(s.created_at)}
+                  {s.summary ? ` — ${s.summary}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          {subs && !subs.length && <span className="text-xs text-[#64748b]">No submissions yet.</span>}
+          <span className="ml-auto flex gap-1 text-xs">
+            {(['desktop', 'phone'] as const).map((w) => (
+              <button key={w} type="button" onClick={() => setWidth(w)} className={`rounded px-2 py-1 ${width === w ? 'bg-[#1a1a2e] text-white' : 'bg-[#f1f5f9]'}`}>
+                {w === 'desktop' ? 'Desktop' : 'Phone'}
+              </button>
+            ))}
+          </span>
+        </div>
+        {error && <p className="p-4 text-sm text-[#b3261e]">{error}</p>}
+        {out && (
+          <>
+            <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 border-b border-[#1a1a2e]/10 bg-white px-4 py-3 text-sm">
+              <dt className="text-[#64748b]">To</dt>
+              <dd>{out.to.join(', ') || <span className="text-[#b3261e]">No valid address: this email wouldn't be sent.</span>}</dd>
+              {out.replyTo && (
+                <>
+                  <dt className="text-[#64748b]">Reply-to</dt>
+                  <dd>{out.replyTo}</dd>
+                </>
+              )}
+              <dt className="text-[#64748b]">Subject</dt>
+              <dd className="font-medium">{out.subject}</dd>
+            </dl>
+            <div className="min-h-0 flex-1 overflow-auto p-4">
+              <iframe title="Email preview" srcDoc={out.html} sandbox="" className="mx-auto block h-full min-h-[600px] border-0 bg-white shadow" style={{ width: width === 'desktop' ? '100%' : 390, maxWidth: '100%' }} />
+            </div>
+          </>
+        )}
+      </div>
+      <aside className="w-96 shrink-0 overflow-y-auto border-l border-[#1a1a2e]/10 p-4">
+        <h3 className="mb-2 text-xs font-semibold tracking-wider text-[#64748b] uppercase">Plain text</h3>
+        <pre className="text-xs whitespace-pre-wrap">{out?.text ?? ''}</pre>
+      </aside>
+    </div>
+  );
+}

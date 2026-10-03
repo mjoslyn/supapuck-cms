@@ -9,6 +9,9 @@ import { FIELD_TYPES, defaultNotification, newField } from '../lib/forms/default
 import type { Choice, Confirmation, Field, FieldType, FormDef, Logic, Notification, Operator, Width } from '../lib/forms/types';
 import siteCss from '../styles/site.css?url';
 import { site } from '../lib/site';
+import { MergeTags } from './rich-message';
+import EmailBuilder from './EmailBuilder';
+import { emailFromMessage } from '../lib/forms/email';
 
 const input = 'w-full rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#b87333]';
 const labelCls = 'mb-1 block text-xs font-medium text-[#64748b]';
@@ -85,112 +88,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 const num = (v: string) => (v.trim() === '' || isNaN(Number(v)) ? undefined : Number(v));
-
-// Merge tags ----------------------------------------------------------------------------------
-
-function mergeTagOptions(form: FormDef): [string, string][] {
-  return [
-    ['{all_fields}', 'All fields'],
-    ['{form_title}', 'Form title'],
-    ['{admin_email}', 'Chamber email'],
-    ['{date}', 'Date'],
-    ...form.fields.filter((f) => INPUT_TYPES.includes(f.type)).map((f) => [`{${f.label}:${f.id}}`, f.label] as [string, string]),
-  ];
-}
-
-/** Older notification messages are plain text; shown as paragraphs and line breaks in the editor. */
-export const messageHtml = (v: string) =>
-  /<(p|br|div|ul|ol|li|strong|b|em|i|a|h[1-6])\b/i.test(v)
-    ? v
-    : v
-        .split(/\n{2,}/)
-        .map((para) => `<p>${para.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>`)
-        .join('');
-
-/**
- * Rich text for email messages: paragraphs, bold, italic, links, bulleted lists, and field tags
- * inserted where the cursor is. Stores HTML. Not inside a <label> (it would hand clicks to the first
- * toolbar button).
- */
-function RichMessage({ label, value, form, onChange }: { label: string; value: string | undefined; form: FormDef; onChange: (v: string) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const range = useRef<Range | null>(null);
-  useEffect(() => {
-    const html = messageHtml(value ?? '');
-    if (ref.current && ref.current.innerHTML !== html) ref.current.innerHTML = html;
-  }, [value]);
-  const emit = () => onChange(ref.current?.innerHTML ?? '');
-  const keepRange = () => {
-    const sel = window.getSelection();
-    if (sel?.rangeCount && ref.current?.contains(sel.anchorNode)) range.current = sel.getRangeAt(0).cloneRange();
-  };
-  const cmd = (c: string, arg?: string) => {
-    ref.current?.focus();
-    document.execCommand('defaultParagraphSeparator', false, 'p');
-    document.execCommand(c, false, arg);
-    emit();
-  };
-  const insertTag = (tag: string) => {
-    const el = ref.current;
-    if (!el) return;
-    el.focus();
-    const sel = window.getSelection()!;
-    if (range.current) {
-      sel.removeAllRanges();
-      sel.addRange(range.current);
-    } else {
-      sel.selectAllChildren(el);
-      sel.collapseToEnd();
-    }
-    document.execCommand('insertText', false, tag);
-    keepRange();
-    emit();
-  };
-  const tool = 'rounded px-2 py-0.5 hover:bg-[#f5f3f0]';
-  return (
-    <div className="mb-3" role="group" aria-label={label}>
-      <span className={labelCls}>{label}</span>
-      <div className="rounded border border-[#1a1a2e]/15 bg-white focus-within:border-[#b87333]">
-        <div className="flex flex-wrap items-center gap-1 border-b border-[#1a1a2e]/10 px-1 py-1 text-xs">
-          <button type="button" className={`${tool} font-bold`} onMouseDown={(e) => (e.preventDefault(), cmd('bold'))} title="Bold" aria-label="Bold">B</button>
-          <button type="button" className={`${tool} italic`} onMouseDown={(e) => (e.preventDefault(), cmd('italic'))} title="Italic" aria-label="Italic">I</button>
-          <button type="button" className={tool} onMouseDown={(e) => (e.preventDefault(), cmd('insertUnorderedList'))} title="Bulleted list" aria-label="Bulleted list">List</button>
-          <button type="button" className={`${tool} underline`} onMouseDown={(e) => { e.preventDefault(); keepRange(); const url = prompt('Link address'); if (url) { const sel = window.getSelection(); if (range.current) { sel?.removeAllRanges(); sel?.addRange(range.current); } cmd('createLink', url); } }} title="Link" aria-label="Link">Link</button>
-          <button type="button" className={tool} onMouseDown={(e) => (e.preventDefault(), cmd('unlink'))} title="Remove link" aria-label="Remove link">Unlink</button>
-          <span className="ml-auto">
-            <MergeTags form={form} onInsert={insertTag} />
-          </span>
-        </div>
-        <div
-          ref={ref}
-          contentEditable
-          suppressContentEditableWarning
-          role="textbox"
-          aria-multiline="true"
-          aria-label={label}
-          className="email-message min-h-36 cursor-text px-3 py-2 text-sm outline-none"
-          onInput={emit}
-          onKeyUp={keepRange}
-          onMouseUp={keepRange}
-          onBlur={keepRange}
-        />
-      </div>
-    </div>
-  );
-}
-
-function MergeTags({ form, onInsert }: { form: FormDef; onInsert: (tag: string) => void }) {
-  return (
-    <select className="mb-1 rounded border border-[#1a1a2e]/15 bg-white px-1.5 py-0.5 text-xs text-[#64748b]" value="" onChange={(e) => e.target.value && onInsert(e.target.value)}>
-      <option value="">Insert field value…</option>
-      {mergeTagOptions(form).map(([tag, l]) => (
-        <option key={tag} value={tag}>
-          {l}
-        </option>
-      ))}
-    </select>
-  );
-}
 
 // Choices -----------------------------------------------------------------------------------------
 
@@ -591,6 +488,8 @@ export default function FormBuilder({ formId }: { formId: number }) {
   const [row, setRow] = useState<Row | null>(null);
   const [saved, setSaved] = useState<string>('');
   const [tab, setTab] = useState<Tab>('build');
+  // The notification whose email is open in the email builder.
+  const [emailFor, setEmailFor] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error' | 'busy'; text: string } | null>(null);
   const [pages, setPages] = useState<{ id: number; title: string }[]>([]);
@@ -725,7 +624,8 @@ export default function FormBuilder({ formId }: { formId: number }) {
 
   const confirmation: Confirmation = form.confirmation ?? { type: 'message', message: '' };
   const setConfirmation = (patch: Partial<Confirmation>) => setForm({ confirmation: { ...confirmation, ...patch } });
-  const setNotification = (i: number, patch: Partial<Notification>) => setRow({ ...row, notifications: row.notifications.map((n, j) => (j === i ? { ...n, ...patch } : n)) });
+  // From the latest row: the email builder reports changes quickly, and several can come in one turn.
+  const setNotification = (i: number, patch: Partial<Notification>) => setRow((r) => r && { ...r, notifications: r.notifications.map((n, j) => (j === i ? { ...n, ...patch } : n)) });
 
   const TABS: [Tab, string][] = [
     ['build', 'Fields'],
@@ -734,8 +634,12 @@ export default function FormBuilder({ formId }: { formId: number }) {
     ['notifications', `Notifications (${row.notifications.length})`],
   ];
 
+  const emailIndex = emailFor ? row.notifications.findIndex((n) => n.id === emailFor) : -1;
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+      {emailIndex >= 0 && (
+        <EmailBuilder formId={row.id} form={form} notification={row.notifications[emailIndex]} onChange={(patch) => setNotification(emailIndex, patch)} onClose={() => setEmailFor(null)} />
+      )}
       <div className="flex items-center gap-4 border-b border-[#1a1a2e]/10 bg-white px-4 py-2">
         <a href="/admin/forms/" className="text-sm text-[#64748b] hover:text-[#b87333]">
           Forms
@@ -885,7 +789,17 @@ export default function FormBuilder({ formId }: { formId: number }) {
                     <TextIn label="From name" value={n.fromName} placeholder={site.organization} onChange={(v) => setNotification(i, { fromName: v || undefined })} />
                     <MergeTags form={form} onInsert={(tag) => setNotification(i, { subject: `${n.subject ?? ''}${tag}` })} />
                     <TextIn label="Subject" value={n.subject} onChange={(v) => setNotification(i, { subject: v })} />
-                    <RichMessage label="Message" value={n.message} form={form} onChange={(v) => setNotification(i, { message: v })} />
+                    <div className="mb-3">
+                      <span className={labelCls}>Email</span>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <button type="button" className={btn} onClick={() => { if (!n.design) setNotification(i, { design: emailFromMessage(n.message) }); setEmailFor(n.id); }}>
+                          Edit email
+                        </button>
+                        <span className="text-xs text-[#64748b]">
+                          {n.design ? `Built in the email builder${n.text ? ', with its own plain text' : ''}.` : 'Uses its message from before the email builder; Edit email opens it there.'}
+                        </span>
+                      </div>
+                    </div>
                     <button type="button" className={`${btn} text-[#b91c1c]`} onClick={() => setRow({ ...row, notifications: row.notifications.filter((_, j) => j !== i) })}>
                       Delete notification
                     </button>

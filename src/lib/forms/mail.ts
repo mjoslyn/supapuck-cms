@@ -12,6 +12,8 @@ export interface Mail {
   to: string[];
   subject: string;
   html: string;
+  /** The plain-text version; made from the HTML when left out. */
+  text?: string;
   replyTo?: string;
   fromName?: string;
 }
@@ -22,30 +24,8 @@ function fromHeader(fromName?: string) {
   return fromName ? `${fromName} <${address}>` : from;
 }
 
-/** The plain-text version of an HTML message (links keep their address). */
-export function textVersion(html: string): string {
-  return html
-    .replace(/<\s*(style|script)[\s\S]*?<\/\s*\1\s*>/gi, '')
-    .replace(/<a\s[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, (_, href, text) => {
-      const t = text.replace(/<[^>]+>/g, '').trim();
-      return t && t !== href ? `${t} (${href})` : href;
-    })
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '\n- ')
-    .replace(/<\/(p|div|h[1-6]|ul|ol|table)>/gi, '\n\n')
-    .replace(/<\/tr>/gi, '\n')
-    .replace(/<\/t[dh]>/gi, '  ')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
+export { textVersion } from './email';
+import { textVersion } from './email';
 
 /**
  * The SMTP transport: SMTP_HOST (+ SMTP_PORT, default 587; SMTP_USER, SMTP_PASS; SMTP_SECURE, default on
@@ -69,6 +49,6 @@ export async function sendMail(mail: Mail): Promise<boolean> {
     console.warn(`[forms] no SMTP configured; not sending "${mail.subject}" to ${mail.to.join(', ')}`);
     return false;
   }
-  await t.sendMail({ from: fromHeader(mail.fromName), to: mail.to, replyTo: mail.replyTo, subject: mail.subject, html: mail.html, text: textVersion(mail.html) });
+  await t.sendMail({ from: fromHeader(mail.fromName), to: mail.to, replyTo: mail.replyTo, subject: mail.subject, html: mail.html, text: mail.text || textVersion(mail.html) });
   return true;
 }
