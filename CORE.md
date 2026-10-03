@@ -356,7 +356,8 @@ One turn at a time per conversation (409 otherwise).
   linked only on pages that use them (`ctx.assets`). Scripts are in `public/assets/js/`. A site serves
   its fonts the same way (files in `src/site/public/assets/fonts/`, `@font-face` in its `theme.css`, the
   first faces preloaded from its `render.ts` `head`).
-- Pages are cached at the CDN (60s, stale-while-revalidate a day). Signed-in editors get an editor bar
+- Pages are cached at the CDN (60s, stale-while-revalidate a day; Netlify's durable cache, shared by its
+  edge servers). The first cover or hero image on a page loads at high priority (`optimizeImages`). Signed-in editors get an editor bar
   (`public/assets/js/editor-bar.js`, `/api/admin/me`) added in the browser, so cached pages stay shared.
 
 ## Media

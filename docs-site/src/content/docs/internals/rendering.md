@@ -38,6 +38,7 @@ it.
 
 ## Caching
 
-Pages are cached at the CDN for 60 seconds, with stale-while-revalidate for a day. Signed-in editors'
+Pages are cached at the CDN for 60 seconds, with stale-while-revalidate for a day, in Netlify's durable
+cache (shared by its edge servers, so a quiet site isn't rendered afresh by each). Signed-in editors'
 editor bar is added in the browser, so cached pages stay shared.
 

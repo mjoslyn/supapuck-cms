@@ -182,7 +182,8 @@ export function markImages(html: string, context: string): string {
 /**
  * Loading attributes (lazy, fetchpriority, decoding) applied in document order over the rendered page.
  * Contexts: template (static template markup: untouched), part-header, part-<area>, content,
- * attachment, loop (inside the main query loop on any request), noloop (never in the main loop).
+ * attachment, loop (inside the main query loop on any request), noloop (never in the main loop), cover
+ * (a cover or hero background).
  * `inLoop` is true on singular requests, where block themes run the main loop.
  */
 export function optimizeImages(html: string, inLoop: boolean): string {
@@ -194,6 +195,16 @@ export function optimizeImages(html: string, inLoop: boolean): string {
     const attr = (n: string) => tag.match(new RegExp(`\\s${n}="([^"]*)"`))?.[1];
     const add = (s: string) => (tag = tag.replace(/\s*\/?>$/, (end) => ` ${s}${end.includes('/') ? ' />' : '>'}`));
     if (!attr('decoding')) add('decoding="async"');
+    // Cover and hero backgrounds (no width or height: they fill their block). The first on the page is
+    // usually its largest paint, so it loads first; later ones wait until they near the screen.
+    if (ctx === 'cover') {
+      if (attr('loading') || attr('fetchpriority')) return tag;
+      if (highAvailable) {
+        add('fetchpriority="high"');
+        highAvailable = false;
+      } else add('loading="lazy"');
+      return tag;
+    }
     const w = Number(attr('width')), h = Number(attr('height'));
     if (!w || !h) return tag;
     let inViewport: boolean | null = null;

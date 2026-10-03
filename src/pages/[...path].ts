@@ -32,7 +32,7 @@ export const GET: APIRoute = async ({ url, request }) => {
   if (old) return Response.redirect(new URL(old, url), 301);
   const { status, html, location } = await renderRequest(url, supabase);
   if (location) {
-    return new Response(null, { status, headers: { Location: new URL(location, url).toString(), 'Cache-Control': 'public, max-age=0, must-revalidate', 'Netlify-CDN-Cache-Control': 'public, s-maxage=60' } });
+    return new Response(null, { status, headers: { Location: new URL(location, url).toString(), 'Cache-Control': 'public, max-age=0, must-revalidate', 'Netlify-CDN-Cache-Control': 'public, durable, s-maxage=60' } });
   }
   // Addresses still not found are logged for the redirects screen.
   if (status === 404 && !ignoredNotFound(url.pathname)) await supabase.rpc('not_found_hit', { hit_path: normalizePath(url.pathname), hit_referrer: request.headers.get('referer') ?? '' }).then(() => {}, () => {});
@@ -41,8 +41,9 @@ export const GET: APIRoute = async ({ url, request }) => {
     headers: {
       'Content-Type': 'text/html; charset=UTF-8',
       // Browsers revalidate; Netlify's CDN serves for a minute and refreshes in the background after edits.
+      // Durable: the edge servers share one cached copy, so a quiet site isn't rendered afresh by each.
       'Cache-Control': 'public, max-age=0, must-revalidate',
-      'Netlify-CDN-Cache-Control': 'public, s-maxage=60, stale-while-revalidate=86400',
+      'Netlify-CDN-Cache-Control': 'public, durable, s-maxage=60, stale-while-revalidate=86400',
     },
   });
 };

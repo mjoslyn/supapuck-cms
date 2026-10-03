@@ -170,7 +170,7 @@ export const hero: Renderer = (b, env) => {
   const m = a.mediaId ? env.ctx.loader.media.get(Number(a.mediaId)) : undefined;
   const focal = m?.focal_point as { x: number; y: number } | null | undefined;
   const pos = focal ? `object-position:${Math.round(focal.x * 100)}% ${Math.round(focal.y * 100)}%` : undefined;
-  const img = a.mediaId || a.src ? imageTag(env, { mediaId: a.mediaId, src: a.src, alt: '', size: 'full' }, { className: 'c-hero__image', style: pos }).replace(/\swidth="\d+"|\sheight="\d+"/g, '') : '';
+  const img = a.mediaId || a.src ? imageTag(env, { mediaId: a.mediaId, src: a.src, alt: '', size: 'full' }, { className: 'c-hero__image', style: pos }).replace(/\swidth="\d+"|\sheight="\d+"/g, '').replace(/<img\b/, '<img data-cms-img="cover"') : '';
   const level = a.level === 2 ? 2 : 1;
   const btn = (label: unknown, href: unknown, cls: string) => (label && href ? `<a class="c-hero__button ${cls}" href="${escAttr(String(href))}">${esc(String(label))}</a>` : '');
   const buttons = btn(a.primaryLabel, a.primaryHref, 'is-primary') + btn(a.secondaryLabel, a.secondaryHref, 'is-secondary');
@@ -197,7 +197,7 @@ export const cover: Renderer = (b, env, inner) => {
   const a = b.attrs;
   const src = a.useFeaturedImage ? featuredImage(env) : a.mediaId || a.src ? a : null;
   const pos = a.focal ? `${Math.round(a.focal.x * 100)}% ${Math.round(a.focal.y * 100)}%` : '';
-  const img = src ? imageTag(env, src, { className: 'c-cover__image', style: pos ? `object-position:${pos}` : undefined }).replace(/\swidth="\d+"|\sheight="\d+"/g, '') : '';
+  const img = src ? imageTag(env, src, { className: 'c-cover__image', style: pos ? `object-position:${pos}` : undefined }).replace(/\swidth="\d+"|\sheight="\d+"/g, '').replace(/<img\b/, '<img data-cms-img="cover"') : '';
   const dim = a.dim ?? (src ? 50 : 100);
   const overlayDecls: Decl[] = [['opacity', String(dim / 100)]];
   if (a.gradient) overlayDecls.push(['background', a.gradient]);
