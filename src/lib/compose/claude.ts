@@ -101,17 +101,22 @@ function messages(r: ConverseRequest): Anthropic.Messages.MessageParam[] {
     pendingTool = undefined;
     const last = i === r.turns.length - 1;
     const intro = i === 0 ? `Create a new ${typeLabel(r.entryType).toLowerCase()}.\n\n` : '';
-    const current = last && i > 0 && r.currentSections ? `\n\nThe page's sections as they are now:\n${r.currentSections}` : '';
-    const fieldsNow = last && i > 0 && r.currentFields ? `\n\nIts fields now:\n${r.currentFields}` : '';
     const target = t.target ? `\n\nSelected block (${t.target.label}), to change with edit_block:\n${t.target.json}` : '';
-    content.push({ type: 'text', text: `${intro}${t.text || '(no message)'}${target}${current}${fieldsNow}` });
+    content.push({ type: 'text', text: `${intro}${t.text || '(no message)'}${target}` });
     const mats = r.materialBlocks.get(i) ?? [];
     if (mats.length) content.push({ type: 'text', text: 'Materials added:' }, ...mats);
     out.push({ role: 'user', content });
   });
-  // Cache everything up to the latest message for the next turn.
-  const blocks = out[out.length - 1].content as Block[];
-  (blocks[blocks.length - 1] as any).cache_control = { type: 'ephemeral' };
+  // Cache everything up to the latest message's own content for the next turn. The page's current
+  // state follows the breakpoint: it is only sent with the latest message, so keeping it out of the
+  // cached prefix lets the next turn read this message back unchanged.
+  const lastTurn = out.length - 1;
+  const blocks = out[lastTurn].content as Block[];
+  (blocks[blocks.length - 1] as any).cache_control = { type: 'ephemeral', ttl: '1h' };
+  if (lastTurn > 0) {
+    if (r.currentSections) blocks.push({ type: 'text', text: `The page's sections as they are now:\n${r.currentSections}` });
+    if (r.currentFields) blocks.push({ type: 'text', text: `Its fields now:\n${r.currentFields}` });
+  }
   return out;
 }
 
@@ -148,7 +153,7 @@ export async function converse(r: ConverseRequest, on: ConverseHooks): Promise<C
     const stream = client.messages.stream({
       model: COMPOSE_MODEL,
       max_tokens: 16000,
-      system: [{ type: 'text', text: system(r), cache_control: { type: 'ephemeral' } }],
+      system: [{ type: 'text', text: system(r), cache_control: { type: 'ephemeral', ttl: '1h' } }],
       tools,
       tool_choice: { type: 'auto', disable_parallel_tool_use: true },
       messages: msgs,

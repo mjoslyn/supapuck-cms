@@ -322,7 +322,7 @@ fills its fields (those with a `compose` hint in the site config) from the mater
 (just the changed fields). The editor applies updates to its sidebar form (`LivePage.setFields`),
 saved with the page. `src/lib/compose/`: `materials.ts` keeps a registry with stable ids (image-1,
 doc-1...; PDFs in the private `compose` bucket, link text fetched once with private addresses refused,
-images re-encoded to JPEG for Claude); `claude.ts` sends the whole conversation (prompt-cached) and
+images re-encoded to JPEG for Claude); `claude.ts` sends the whole conversation (prompt-cached for an hour: the system prompt and the conversation up to the latest message; the page's current sections and fields follow the cache breakpoint) and
 Claude either replies or calls `build_page` with the complete page plan (`spec.ts`); `build.ts` turns
 the plan into components in the house style. Blocks built by a conversation carry its id prefix, so
 each update replaces only those, in place; hand edits are shown to Claude. With a block selected in
