@@ -356,8 +356,15 @@ One turn at a time per conversation (409 otherwise).
   linked only on pages that use them (`ctx.assets`). Scripts are in `public/assets/js/`. A site serves
   its fonts the same way (files in `src/site/public/assets/fonts/`, `@font-face` in its `theme.css`, the
   first faces preloaded from its `render.ts` `head`).
-- Pages are cached at the CDN (60s, stale-while-revalidate a day; Netlify's durable cache, shared by its
-  edge servers). The first cover or hero image on a page loads at high priority (`optimizeImages`). Signed-in editors get an editor bar
+- Pages are cached at the CDN through Astro's route cache (`cache` in `astro.config.mjs`, the Netlify
+  provider; `src/lib/cache.ts`): fresh for 60s, then served stale for up to a week while they refresh,
+  in Netlify's durable cache (shared by its edge servers), tagged `pages`. A successful admin write
+  (POST, PUT, PATCH or DELETE under `/api/admin/`) clears that tag from the middleware
+  (`cache.invalidate`), so edits show at once; previews, Claude drafting, accessibility marks,
+  submissions, users and sync requests other than a sync into this copy or a restore don't
+  (`changesPages`). A failed purge is logged and the edit shows within the minute. Under `astro dev`
+  nothing is cached. The first cover or hero image on a page loads at high priority (`optimizeImages`).
+  Signed-in editors get an editor bar
   (`public/assets/js/editor-bar.js`, `/api/admin/me`) added in the browser, so cached pages stay shared.
 
 ## Media

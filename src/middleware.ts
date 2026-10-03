@@ -3,6 +3,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { serverClient } from './lib/supabase';
 import { refreshSiteTimezone } from './lib/site/timezone';
+import { changesPages, PAGE_CACHE_TAG } from './lib/cache';
 
 const PUBLIC_ADMIN = ['/admin/login/', '/admin/set-password/', '/api/auth/login', '/api/auth/logout'];
 const ADMIN_ONLY = ['/admin/settings', '/admin/users', '/api/admin/settings', '/api/admin/sync', '/api/admin/users'];
@@ -30,5 +31,13 @@ export const onRequest = defineMiddleware(async (context, next) => {
   }
   context.locals.db = db;
   context.locals.user = { id: user.id, email: user.email ?? '', role: profile.role, name: profile.display_name ?? '' };
-  return next();
+  // An edit clears the CDN's cached pages once it succeeds (src/lib/cache.ts), so it shows at once.
+  const { method } = context.request;
+  const syncAction = pathname.startsWith('/api/admin/sync') && method === 'POST' ? (await context.request.clone().json().catch(() => ({})))?.action : undefined;
+  const response = await next();
+  if (response.ok && changesPages(method, pathname, syncAction) && context.cache.enabled) {
+    // A failed purge is logged, not the edit's failure: the pages refresh within the minute anyway.
+    await context.cache.invalidate({ tags: [PAGE_CACHE_TAG] }).catch((e: Error) => console.error(`page cache purge failed: ${e.message}`));
+  }
+  return response;
 });

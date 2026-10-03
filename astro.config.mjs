@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import netlify from '@astrojs/netlify';
+import { cacheNetlify } from '@astrojs/netlify/cache';
 import tailwindcss from '@tailwindcss/vite';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -55,6 +56,8 @@ export default defineConfig({
   // Netlify's /media/ rewrite; locally /media/ is the app's route with the same check (path-guard.ts).
   adapter: netlify({ devFeatures: { images: true, environmentVariables: false, edgeFunctions: false } }),
   integrations: [react(), siteRoutes, sitePublic],
+  // Netlify's CDN caches the pages (durable, cache tags) and purges them after edits (src/lib/cache.ts).
+  cache: { provider: cacheNetlify() },
   trailingSlash: 'ignore',
   build: { format: 'directory' },
   vite: { plugins: [tailwindcss()] },
