@@ -1,7 +1,7 @@
 // Image markup for media rows: size selection, srcset/sizes, focal-point position, and AVIF/WebP
 // <picture> sources.
 import type { Media } from '../types';
-import { focalFor, position } from './focal';
+import { focalFor, position, shapeFor } from './focal';
 import { safeDecode } from '../url';
 
 export const UPLOADS_BASE = '/media/';
@@ -127,8 +127,20 @@ export function versioned(m: Pick<Media, 'processed_at'>, url: string): string {
 }
 const versionSet = (m: Pick<Media, 'processed_at'>, set: string) => set.split(', ').map((c) => { const [u, w] = c.split(' '); return `${versioned(m, u)} ${w}`; }).join(', ');
 
-/** Image attributes for a media row at a size (loading/decoding/fetchpriority are decided in optimizeImages()). */
+/**
+ * Image attributes for a media row at a size (loading/decoding/fetchpriority are decided in optimizeImages()).
+ * Cropped to a shape (`ratio`, or the square thumbnail size) for which the row names another image
+ * (crop_images, loaded as crop_media), that image is used, with the focal point set for that use (else
+ * its own); the alt text is its own, else this one's.
+ */
 export function mediaImage(m: Media, size: string, attr: { className?: string; alt?: string; style?: string; ratio?: number | null } = {}): ImgAttrs {
+  const shape = shapeFor(attr.ratio ?? (size === 'thumbnail' ? 1 : null));
+  const swap = shape ? m.crop_media?.[shape.key] : undefined;
+  if (swap) {
+    const focal = m.crop_images?.[shape!.key]?.focal;
+    const shown: Media = { ...swap, crop_media: undefined, ...(focal ? { crop_focals: { ...(swap.crop_focals ?? {}), [shape!.key]: focal } } : {}) };
+    return mediaImage(shown, size, { ...attr, alt: attr.alt ?? (swap.alt || m.alt) });
+  }
   const src = downsize(m, size);
   const set = srcset(m, src);
   const focal = focalPosition(m, attr.ratio);

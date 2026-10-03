@@ -362,7 +362,13 @@ a `-scaled` copy as the full size, the standard sizes are generated (hard crops 
 point), and every file gets AVIF and WebP copies next to it. `media.focal_point` ({x, y} in 0..1) is set
 in the media library, with optional overrides per crop shape (`media.crop_focals`: square, 16:9, 4:3,
 3:4; `src/lib/media/focal.ts`). Changes re-crop the cropped sizes; the point for the nearest shape
-becomes `object-position` wherever the image is cropped to a ratio. Images render as `<picture>` with
+becomes `object-position` wherever the image is cropped to a ratio. Each shape can also use another
+image instead (`media.crop_images`: { shape: { id, focal } }, set from the crop previews): wherever the image
+is cropped to that shape (a block's aspect ratio, or the square thumbnail size), `mediaImage` shows the
+other one, with the focal point set for that use (else its own) and its alt text (else this one's). `Loader.loadMedia` loads them with
+the image (`crop_media`, one level). In the media library, with a replaced shape chosen, the panel
+shows the other image and clicks set the focal point for that use (kept in `crop_images`; the other
+image's own focal points are untouched). Images render as `<picture>` with
 AVIF/WebP sources; `src/lib/media/modernize.ts` does the same for plain `/media/` images and inline
 backgrounds in the final HTML. Existing media: `scripts/media-formats.ts` backfills the copies
 (`processed_at` marks done).

@@ -133,13 +133,30 @@ export class Loader {
     return ids.map((id) => this.entries.get(id)).filter(Boolean) as Entry[];
   }
 
-  /** Load media rows (featured images, image fields) by id. */
+  /** Load media rows (featured images, image fields) by id, with the images they use for crop shapes. */
   async loadMedia(ids: unknown[]) {
-    const need = [...new Set(ids.map(Number).filter((id) => id > 0 && !this.media.has(id)))];
-    for (const chunk of chunks(need)) {
-      const { data, error } = await this.db.from('media').select('*').in('id', chunk);
-      if (error) throw error;
-      for (const m of (data ?? []) as Media[]) this.media.set(m.id, m);
+    const fetch = async (list: unknown[]) => {
+      const need = [...new Set(list.map(Number).filter((id) => id > 0 && !this.media.has(id)))];
+      const got: Media[] = [];
+      for (const chunk of chunks(need)) {
+        const { data, error } = await this.db.from('media').select('*').in('id', chunk);
+        if (error) throw error;
+        for (const m of (data ?? []) as Media[]) this.media.set(m.id, m), got.push(m);
+      }
+      return got;
+    };
+    const loaded = await fetch(ids);
+    // One level: an image's crop replacements (theirs aren't followed).
+    const swaps = loaded.filter((m) => m.crop_images && Object.keys(m.crop_images).length);
+    if (!swaps.length) return;
+    await fetch(swaps.flatMap((m) => Object.values(m.crop_images!).map((c) => c.id)));
+    for (const m of swaps) {
+      const crop_media: Record<string, Media> = {};
+      for (const [shape, c] of Object.entries(m.crop_images!)) {
+        const r = this.media.get(Number(c.id));
+        if (r && r.id !== m.id && r.mime_type.startsWith('image/')) crop_media[shape] = r;
+      }
+      m.crop_media = crop_media;
     }
   }
 

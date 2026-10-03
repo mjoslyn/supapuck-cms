@@ -1,5 +1,6 @@
-// Update a media item's alt text, caption, title, focal point and per-shape focal points. A changed
-// focal point regenerates the hard-cropped sizes (and their AVIF/WebP copies) around it.
+// Update a media item's alt text, caption, title, focal point, per-shape focal points and per-shape
+// images (crop_images: another image shown wherever this one is cropped to that shape). A changed focal
+// point regenerates the hard-cropped sizes (and their AVIF/WebP copies) around it.
 import type { APIRoute } from 'astro';
 import { serviceClient } from '../../../../lib/supabase';
 import { MediaStore, addFormats } from '../../../../lib/media/process';
@@ -30,6 +31,23 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
     const q = b ?? { x: 0.5, y: 0.5 };
     return Math.abs(p.x - q.x) < 0.001 && Math.abs(p.y - q.y) < 0.001;
   };
+  // Per-shape images: { "1/1": { id, focal? } | null, ... }, each an image other than this one, with the
+  // focal point for that use.
+  if (body.crop_images && typeof body.crop_images === 'object') {
+    const point = (p: any) => (p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: Math.min(1, Math.max(0, +p.x)), y: Math.min(1, Math.max(0, +p.y)) } : undefined);
+    const wanted: Record<string, { id: number; focal?: { x: number; y: number } }> = {};
+    for (const s of SHAPES) {
+      const c = body.crop_images[s.key];
+      const other = Number(c?.id);
+      if (other > 0 && other !== id) wanted[s.key] = { id: other, ...(point(c.focal) ? { focal: point(c.focal) } : {}) };
+    }
+    const ids = [...new Set(Object.values(wanted).map((c) => c.id))];
+    const { data: found } = ids.length ? await locals.db.from('media').select('id, mime_type').in('id', ids) : { data: [] };
+    const images = new Set((found ?? []).filter((r) => r.mime_type.startsWith('image/')).map((r) => r.id));
+    const missing = ids.filter((x) => !images.has(x));
+    if (missing.length) return new Response(`Not an image in the library: ${missing.join(', ')}`, { status: 400 });
+    patch.crop_images = wanted;
+  }
   const focalChanged = focal !== undefined && !same(focal, m.focal_point);
   const oldCrops = (m.crop_focals ?? {}) as Record<string, { x: number; y: number }>;
   const cropsChanged = crops !== undefined && SHAPES.some((s) => (crops as Record<string, any>)[s.key] || oldCrops[s.key] ? !(crops as Record<string, any>)[s.key] !== !oldCrops[s.key] || !same((crops as Record<string, any>)[s.key], oldCrops[s.key]) : false);

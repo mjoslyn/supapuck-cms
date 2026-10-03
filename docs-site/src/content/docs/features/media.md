@@ -20,6 +20,17 @@ shape (`media.crop_focals`: square, 16:9, 4:3, 3:4; `src/lib/media/focal.ts`). C
 re-crops the cropped sizes. Wherever an image is cropped to a ratio, the point for the nearest shape
 becomes its `object-position`.
 
+## A different image for a crop
+
+Some photos don't crop well to every shape: a tall portrait makes a poor wide banner. Under each crop
+preview in the media library, **Use another image** picks a different image from the library for that
+shape. Wherever the image is shown cropped to that shape (a block with that aspect ratio, a card, the
+square thumbnail size), the other image shows instead, with its own focal point; **Remove** goes back to
+the image itself. With that shape chosen above the image, the panel shows the other image: clicking it
+sets its focal point for this crop, saved with Save. That point applies only where it stands in for this
+image; the other image's own focal points are untouched. Shapes are matched within 15%, so 16:10 counts as wide; crops that aren't one of the four shapes
+(3:1, say, or a height with no ratio) keep the image itself.
+
 ## Markup
 
 Images render as `<picture>` with AVIF and WebP sources (`src/lib/media/image.ts`).

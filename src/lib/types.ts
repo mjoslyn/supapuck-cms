@@ -25,6 +25,11 @@ export interface Media {
   focal_point?: { x: number; y: number } | null;
   /** Focal points for particular crop shapes ("1/1", "16/9", "4/3", "3/4"), overriding focal_point. */
   crop_focals?: Record<string, { x: number; y: number }> | null;
+  /** Another image to show for a crop shape, wherever this one is cropped to it, and the focal point
+   *  for that use (only there: the other image's own focal points are untouched). */
+  crop_images?: Record<string, { id: number; focal?: { x: number; y: number } | null }> | null;
+  /** The loaded rows of crop_images (attached by Loader.loadMedia; not stored). */
+  crop_media?: Record<string, Media>;
   /** Modern-format copies of the full size. */
   formats?: Record<string, string>;
 }
