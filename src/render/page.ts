@@ -1,6 +1,7 @@
 // Request -> full HTML document:
 // resolve the queried object, pick a template via the template hierarchy, render blocks,
 // then texturize the result (get_the_block_template_html) and wrap it in the page shell.
+import { VENDOR_CSS } from './vendor';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Loader } from '../lib/data';
 import { recurrenceOf, expandEntry, defaultHorizon } from '../lib/recurrence';
@@ -190,13 +191,11 @@ function documentTitle(q: Queried, site: Record<string, any>): string {
 }
 
 /** Third-party stylesheets (CDN) a page needs besides site.css. */
-export const VENDOR_CSS: Record<string, string> = {
-  swiper: 'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css',
-  leaflet: 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css',
-};
+export { VENDOR_CSS };
 
+/** The vendor stylesheets this page needs: Swiper with a slider, Leaflet with a map. */
 export function vendorCss(ctx: RenderCtx): string[] {
-  return ['swiper', ...(ctx.assets.has('leaflet') ? ['leaflet'] : [])];
+  return Object.keys(VENDOR_CSS).filter((name) => ctx.assets.has(name));
 }
 
 /** Preview: render this entry (unsaved content and fields included), optionally with an edited template. */
@@ -265,8 +264,7 @@ export async function renderRequest(url: URL, db: SupabaseClient, form?: FormRes
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
 ${queried.kind === 'search' ? '	<meta name="robots" content="noindex, follow" />\n' : ''}	<title>${title}</title>
-${meta}<link rel='dns-prefetch' href='//cdn.jsdelivr.net' />
-${pre}<style id='core-block-supports-inline-css'>
+${meta}${pre}<style id='core-block-supports-inline-css'>
 ${css}
 </style>
 ${(ctx.headScripts ?? []).map((s) => `${s}\n`).join('')}<link rel='stylesheet' id='site-css' href='${siteCss}' media='all' />

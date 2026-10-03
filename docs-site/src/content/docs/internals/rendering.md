@@ -25,8 +25,11 @@ Supporting code:
 ## CSS
 
 `src/styles/site.css` (Tailwind, no preflight) imports the site's `tokens.css` and `theme.css`,
-`forms.css` and `events.css`; the page shell links the compiled file. Only Swiper and Leaflet CSS come
-from a CDN (`VENDOR_CSS` in `page.ts`).
+`forms.css` and `events.css`; the page shell links the compiled file. Swiper (sliders) and Leaflet
+(maps) are served from the site, in versioned folders under `public/assets/vendor/`, rather than a CDN,
+and their stylesheets are linked only on pages that use them. A site should serve its fonts the same way:
+files in `src/site/public/assets/fonts/`, `@font-face` in its `theme.css`, and the first faces preloaded
+from its `render.ts` `head`.
 
 ## Scripts
 

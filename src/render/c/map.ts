@@ -8,7 +8,8 @@ import { permalink } from '../../lib/permalink';
 import { decodeEntities } from '../../lib/text/entities';
 import { activeFilters, type FilterSpec } from './filters';
 
-export const LEAFLET_SCRIPT = '<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" id="leaflet-js"></script>';
+import { LEAFLET_SCRIPT } from '../vendor';
+export { LEAFLET_SCRIPT };
 
 const bool = (v: unknown) => v === true || v === 1 || v === '1';
 const plain = (s: unknown) => decodeEntities(String(s ?? '').replace(/<[^>]*>/g, ' ')).replace(/\s+/g, ' ').trim();

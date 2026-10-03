@@ -350,8 +350,12 @@ One turn at a time per conversation (409 otherwise).
 - `src/lib/text/` (texturize, autop, entities), `src/lib/date-format.ts` (PHP-style date formats stored
   in content), `src/lib/media/image.ts` (image markup), `src/lib/permalink.ts`.
 - CSS: `src/styles/site.css` (Tailwind, no preflight) imports the site's `tokens.css` and `theme.css`,
-  `forms.css` and `events.css`; the page shell links the compiled file. Only Swiper and
-  Leaflet CSS come from a CDN (`VENDOR_CSS` in `page.ts`). Scripts are in `public/assets/js/`.
+  `forms.css` and `events.css`; the page shell links the compiled file. Swiper (sliders)
+  and Leaflet (maps) are served from the site, in versioned folders under `public/assets/vendor/`
+  (`src/render/vendor.ts`), not a CDN, whose connection would hold up the page; their stylesheets are
+  linked only on pages that use them (`ctx.assets`). Scripts are in `public/assets/js/`. A site serves
+  its fonts the same way (files in `src/site/public/assets/fonts/`, `@font-face` in its `theme.css`, the
+  first faces preloaded from its `render.ts` `head`).
 - Pages are cached at the CDN (60s, stale-while-revalidate a day). Signed-in editors get an editor bar
   (`public/assets/js/editor-bar.js`, `/api/admin/me`) added in the browser, so cached pages stay shared.
 

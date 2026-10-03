@@ -189,7 +189,8 @@ async function walk(items: PuckItem[], ctx: RenderCtx, state: WalkState) {
         }
         if (className.includes('is-style-slider') || attrs.variant === 'slider' || attrs.display === 'slider') {
           ctx.data.set(`slider:${props.id}`, `c-slider-${++state.uid}`);
-          // Swiper runs the slider (its CSS is in VENDOR_CSS).
+          // Swiper runs the slider: its script, and its stylesheet in <head> (VENDOR_CSS, via ctx.assets).
+          ctx.assets.add('swiper');
           if (!ctx.scripts.includes(SWIPER_SCRIPT)) ctx.scripts.push(SWIPER_SCRIPT);
         }
         break;
