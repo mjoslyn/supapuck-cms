@@ -1,4 +1,4 @@
-// The admin's colors (Settings > Admin, settings.site.admin_theme). Each is a role token from
+// The admin's colors and logo (Settings > Admin, settings.site.admin_theme). Each is a role token from
 // src/styles/tailwind.css (--color-admin-*); the admin pages write the chosen ones, and the colors made
 // from them, after the stylesheet (AdminTheme.astro), and the settings screen sets them on the page as
 // they are picked.
@@ -9,10 +9,17 @@ export interface AdminTheme {
   ink?: string;
   bar?: string;
   bg?: string;
+  /** The menu bar's logo: a media id, and the URL of a size of it (set by the settings API). */
+  logo?: number;
+  logo_url?: string;
+  /** Show the site name beside the logo. */
+  logo_name?: boolean;
 }
 
+type ColorKey = 'accent' | 'ink' | 'bar' | 'bg';
+
 /** The colors an admin can pick, with the defaults (tailwind.css) and what each is for. */
-export const ADMIN_THEME_FIELDS: { key: keyof AdminTheme; label: string; default: string; help: string }[] = [
+export const ADMIN_THEME_FIELDS: { key: ColorKey; label: string; default: string; help: string }[] = [
   { key: 'accent', label: 'Accent', default: '#b87333', help: 'Links, selections, focus and the main buttons on hover; white text sits on it.' },
   { key: 'ink', label: 'Text', default: '#1a1a2e', help: 'Text, borders and the dark buttons; white text sits on it.' },
   { key: 'bar', label: 'Menu bar', default: '#1a1a2e', help: 'The bar along the top; its text turns dark on a light color.' },
@@ -21,13 +28,18 @@ export const ADMIN_THEME_FIELDS: { key: keyof AdminTheme; label: string; default
 
 const HEX = /^#[0-9a-f]{6}$/;
 
-/** The known colors of a stored or posted theme, as #rrggbb; undefined when none are set. */
+/** The known values of a stored or posted theme (colors as #rrggbb); undefined when none are set. */
 export function adminThemeFrom(v: unknown): AdminTheme | undefined {
   if (!v || typeof v !== 'object') return undefined;
   const out: AdminTheme = {};
   for (const f of ADMIN_THEME_FIELDS) {
     const c = String((v as Record<string, unknown>)[f.key] ?? '').toLowerCase();
     if (HEX.test(c) && c !== f.default) out[f.key] = c;
+  }
+  const logo = Number((v as AdminTheme).logo);
+  const url = (v as AdminTheme).logo_url;
+  if (Number.isInteger(logo) && logo > 0 && typeof url === 'string' && url.startsWith('/media/')) {
+    Object.assign(out, { logo, logo_url: url.slice(0, 2000) }, (v as AdminTheme).logo_name ? { logo_name: true } : {});
   }
   return Object.keys(out).length ? out : undefined;
 }
@@ -51,7 +63,7 @@ export function contrast(a: string, b: string): number {
 export function adminThemeVars(theme: AdminTheme | undefined): Record<string, string> {
   const t = adminThemeFrom(theme);
   if (!t) return {};
-  const pick = (k: keyof AdminTheme) => t[k] ?? ADMIN_THEME_FIELDS.find((f) => f.key === k)!.default;
+  const pick = (k: ColorKey) => t[k] ?? ADMIN_THEME_FIELDS.find((f) => f.key === k)!.default;
   const vars: Record<string, string> = {};
   if (t.accent) {
     vars['--color-admin-accent'] = t.accent;

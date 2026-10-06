@@ -1,6 +1,6 @@
 // Site settings island, in tabs: General (name, tagline, front page, timezone), Types (the templates for
 // each type's pages and listing), Search (the types it covers), Social (profile links, default share
-// image), Admin (the admin's colors), Redirects (saved as they are added, with the Not found log), Sync (with another copy of the
+// image), Admin (the admin's colors and logo), Redirects (saved as they are added, with the Not found log), Sync (with another copy of the
 // site), Backups (snapshots and sync backups) and the site's own options. One Save for all;
 // the tab is in the URL (#search), and leaving with unsaved changes asks first.
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
@@ -64,6 +64,25 @@ export default function SiteSettings({ site: initialSite, options: initialOption
     const vars = { ...ADMIN_THEME_DEFAULTS, ...adminThemeVars(site.admin_theme) };
     for (const [k, v] of Object.entries(vars)) document.documentElement.style.setProperty(k, v);
   }, [site.admin_theme]);
+  // The logo as it is picked, in the menu bar (as Admin.astro renders it).
+  useEffect(() => {
+    const brand = document.getElementById('admin-brand');
+    if (!brand) return;
+    const t = site.admin_theme;
+    const parts: HTMLElement[] = [];
+    if (t?.logo_url) {
+      const img = document.createElement('img');
+      Object.assign(img, { src: t.logo_url, alt: t.logo_name ? '' : config.name, className: 'block h-8 w-auto max-w-[120px] object-contain sm:max-w-[180px]' });
+      parts.push(img);
+    }
+    if (!t?.logo_url || t.logo_name) {
+      const name = document.createElement('span');
+      name.textContent = config.name;
+      if (t?.logo_url) name.className = 'max-sm:hidden';
+      parts.push(name);
+    }
+    brand.replaceChildren(...parts);
+  }, [site.admin_theme?.logo_url, site.admin_theme?.logo_name]);
   const save = async () => {
     // Types whose pages would lose their own content with the template chosen for them.
     const lacking = Object.entries(site.templates ?? {})
@@ -198,7 +217,7 @@ export default function SiteSettings({ site: initialSite, options: initialOption
     {
       id: 'admin',
       label: 'Admin',
-      panel: <AdminColors value={site.admin_theme ?? {}} onChange={(t) => setSite((s) => ({ ...s, admin_theme: Object.keys(t).length ? t : undefined }))} />,
+      panel: <AdminThemePanel value={site.admin_theme ?? {}} onChange={(t) => setSite((s) => ({ ...s, admin_theme: Object.keys(t).length ? t : undefined }))} />,
     },
     { id: 'redirects', label: 'Redirects', panel: <Redirects initial={redirects} notFound={notFound} /> },
     { id: 'sync', label: 'Sync', panel: <Sync /> },
@@ -505,11 +524,22 @@ function TaxonomyTemplatesPanel({ value, off, templates, meta, onChange, onPages
   );
 }
 
-/** The admin's colors: one picker each, with a warning when white text on it would be hard to read. */
-function AdminColors({ value, onChange }: { value: AdminTheme; onChange: (t: AdminTheme) => void }) {
+/** The admin's logo, and its colors: one picker each, with a warning when text on it would be hard to read. */
+function AdminThemePanel({ value, onChange }: { value: AdminTheme; onChange: (t: AdminTheme) => void }) {
+  const { logo: _logo, logo_url: _url, logo_name: _name, ...colors } = value;
   return (
     <>
-      <p className="mb-3 text-xs text-admin-muted">The colors of these admin screens and the page editor, for everyone who signs in. They change here as you pick them; Save keeps them.</p>
+      <p className="mb-3 text-xs text-admin-muted">The logo and colors of these admin screens and the page editor, for everyone who signs in. They change here as you pick them; Save keeps them.</p>
+      <MediaPicker title="Logo" fit="contain" url={value.logo_url} onSelect={(m) => onChange({ ...value, logo: m.id ?? m.mediaId ?? undefined, logo_url: m.url })} />
+      <p className="-mt-2 mb-3 text-xs text-admin-muted">In the menu bar, in place of the site name, up to 32px tall. Choose one that reads on the menu bar's color.</p>
+      {!!value.logo && (
+        <>
+          <Toggle title="Show the site name beside it" value={!!value.logo_name} onChange={(v) => onChange({ ...value, logo_name: v || undefined })} />
+          <button type="button" className="mb-4 block text-xs text-[#b3261e]" onClick={() => onChange(colors)}>
+            Remove logo
+          </button>
+        </>
+      )}
       {ADMIN_THEME_FIELDS.map((f) => {
         const color = value[f.key] ?? f.default;
         const set = (c: string | undefined) => {

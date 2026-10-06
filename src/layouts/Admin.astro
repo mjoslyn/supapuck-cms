@@ -1,6 +1,8 @@
 ---
 import { SITE_TZ, site } from '../lib/site';
 import AdminTheme from './AdminTheme.astro';
+import { loadAdminTheme } from '../lib/admin-theme';
+import { supabase } from '../lib/supabase';
 // Admin chrome. Tailwind only; the public site's CSS never loads here.
 import '../styles/tailwind.css';
 import '../styles/admin.css';
@@ -13,6 +15,7 @@ const { title, wide = false } = Astro.props;
 const user = Astro.locals.user;
 const path = Astro.url.pathname;
 const isAdmin = user?.role === 'admin';
+const theme = await loadAdminTheme(Astro.locals.db ?? supabase);
 const nav = [
   { href: '/admin/', label: 'Content' },
   { href: '/admin/templates/', label: 'Templates' },
@@ -31,14 +34,18 @@ const nav = [
     <meta name="robots" content="noindex" />
     <script is:inline define:vars={{ siteTz: SITE_TZ }}>window.__siteTz = siteTz;</script>
     <title>{title} · {site.name} admin</title>
-    <AdminTheme />
+    <AdminTheme theme={theme} />
   </head>
   <body class="min-h-screen bg-admin-bg font-admin text-admin-ink antialiased">
     {
       user && (
         <header class="border-b border-admin-ink/10 bg-admin-bar text-admin-on-bar">
           <div class="mx-auto flex h-14 max-w-[1280px] items-center gap-6 px-6">
-            <a href="/admin/" class="shrink-0 whitespace-nowrap text-lg font-semibold">{site.name}</a>
+            {/* The logo from Settings > Admin, else (or beside it) the site name; the settings screen previews changes here. */}
+            <a href="/admin/" id="admin-brand" class="flex shrink-0 items-center gap-2.5 whitespace-nowrap text-lg font-semibold">
+              {theme?.logo_url && <img src={theme.logo_url} alt={theme.logo_name ? '' : site.name} class="block h-8 w-auto max-w-[120px] object-contain sm:max-w-[180px]" />}
+              {(!theme?.logo_url || theme.logo_name) && <span class:list={[theme?.logo_url && 'max-sm:hidden']}>{site.name}</span>}
+            </a>
             {/* One line: items never wrap; when space runs out the menu scrolls sideways. */}
             <nav class="admin-nav -my-2 flex min-w-0 flex-1 gap-1 overflow-x-auto py-2 text-sm" aria-label="Admin">
               {nav.map((n) => (

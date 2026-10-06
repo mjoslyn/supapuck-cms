@@ -447,8 +447,10 @@ they are made (`PUT /api/admin/a11y`; not an unsaved edit), and lapse when the t
 are offered only on those entry types. Pages whose template has no `post-content` are edited in layout
 mode: the template document itself.
 
-Admin colors (Settings > Admin, `settings.site.admin_theme`, `src/lib/admin-theme.ts`): accent, text,
-menu bar and background, previewed as they are picked. Admin styles use only the role tokens
+Admin colors and logo (Settings > Admin, `settings.site.admin_theme`, `src/lib/admin-theme.ts`): accent,
+text, menu bar and background, and a logo for the menu bar in place of the site name (or beside it,
+`logo_name`; a media id, whose URL the settings API makes from the media row), previewed as they are
+picked. Admin styles use only the role tokens
 `--color-admin-*` (`src/styles/tailwind.css`; Tailwind colors like `text-admin-muted`), never hex
 values; `src/layouts/AdminTheme.astro` writes the saved colors and the shades made from them (darker
 accent, soft background, the bar's text) on every admin page, and Puck's blue scale is made from the
