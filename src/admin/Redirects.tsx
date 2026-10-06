@@ -11,7 +11,7 @@ export interface NotFound {
   referrer: string;
 }
 
-const input = 'w-full rounded-sm border border-[#1a1a2e]/20 bg-white px-2.5 py-1.5 text-sm';
+const input = 'w-full rounded-sm border border-admin-ink/20 bg-white px-2.5 py-1.5 text-sm';
 const when = (s: string | null) => (s ? new Date(s).toLocaleString('en-US', { timeZone: SITE_TZ, month: 'short', day: 'numeric', year: 'numeric' }) : 'never');
 const blank = { id: 0, from: '', to: '', status: 301, note: '' };
 
@@ -58,8 +58,8 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
 
   return (
     <div className="max-w-5xl">
-      <section className="mb-8 rounded border border-[#1a1a2e]/10 bg-white p-4" aria-labelledby="redirect-form-title">
-        <h2 id="redirect-form-title" className="mb-3 text-sm font-semibold tracking-wider text-[#64748b] uppercase">
+      <section className="mb-8 rounded border border-admin-ink/10 bg-white p-4" aria-labelledby="redirect-form-title">
+        <h2 id="redirect-form-title" className="mb-3 text-sm font-semibold tracking-wider text-admin-muted uppercase">
           {form.id ? 'Change redirect' : 'Add a redirect'}
         </h2>
         <form
@@ -69,48 +69,48 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
             save();
           }}
         >
-          <label className="block text-xs text-[#64748b]">
+          <label className="block text-xs text-admin-muted">
             Old address
             <input ref={fromRef} required className={`${input} mt-1`} value={form.from} placeholder="/old-page/ or /old-section/*" onChange={(e) => setForm({ ...form, from: e.target.value })} />
           </label>
-          <label className="block text-xs text-[#64748b]">
+          <label className="block text-xs text-admin-muted">
             New address
             <input ref={toRef} required className={`${input} mt-1`} value={form.to} placeholder="/new-page/ or https://…" onChange={(e) => setForm({ ...form, to: e.target.value })} />
           </label>
-          <label className="block text-xs text-[#64748b]">
+          <label className="block text-xs text-admin-muted">
             Type
             <select className={`${input} mt-1`} value={form.status} onChange={(e) => setForm({ ...form, status: Number(e.target.value) })}>
               <option value={301}>Permanent (301)</option>
               <option value={302}>Temporary (302)</option>
             </select>
           </label>
-          <label className="block text-xs text-[#64748b] md:col-span-2">
+          <label className="block text-xs text-admin-muted md:col-span-2">
             Note (optional)
             <input className={`${input} mt-1`} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
           </label>
           <div className="flex items-end gap-2">
-            <button type="submit" className="rounded-sm bg-[#1a1a2e] px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">
+            <button type="submit" className="rounded-sm bg-admin-ink px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-admin-accent">
               {form.id ? 'Save' : 'Add'}
             </button>
             {form.id > 0 && (
-              <button type="button" className="px-2 py-2 text-xs text-[#64748b]" onClick={() => setForm(blank)}>
+              <button type="button" className="px-2 py-2 text-xs text-admin-muted" onClick={() => setForm(blank)}>
                 Cancel
               </button>
             )}
           </div>
         </form>
-        <p className="mt-3 text-xs text-[#64748b]">
+        <p className="mt-3 text-xs text-admin-muted">
           Redirects apply to addresses that would otherwise be Not found, so they never hide a live page. End the old address with * to move a whole section: /old-blog/* to /news/* sends /old-blog/any-post/ to
           /news/any-post/. Pages whose address changes get a redirect automatically.
         </p>
-        <p className="mt-2 text-xs text-[#1a1a2e]" role="status">
+        <p className="mt-2 text-xs text-admin-ink" role="status">
           {status}
         </p>
       </section>
 
       <section className="mb-10" aria-labelledby="redirects-title">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 id="redirects-title" className="text-sm font-semibold tracking-wider text-[#64748b] uppercase">
+          <h2 id="redirects-title" className="text-sm font-semibold tracking-wider text-admin-muted uppercase">
             Redirects ({rows.length})
           </h2>
           <input aria-label="Filter redirects" className={`${input} max-w-xs`} placeholder="Filter" value={filter} onChange={(e) => setFilter(e.target.value)} />
@@ -118,7 +118,7 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
         {shown.length ? (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-[#64748b]">
+              <tr className="text-left text-xs text-admin-muted">
                 <th className="pb-2 font-medium">Old address</th>
                 <th className="pb-2 font-medium">New address</th>
                 <th className="pb-2 font-medium">Type</th>
@@ -130,10 +130,10 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
             </thead>
             <tbody>
               {shown.map((r) => (
-                <tr key={r.id} className="border-t border-[#1a1a2e]/10 align-top">
+                <tr key={r.id} className="border-t border-admin-ink/10 align-top">
                   <td className="py-2 pr-3 font-mono text-xs break-all">
                     {r.from_path}
-                    {r.note && <span className="mt-0.5 block font-sans text-[#64748b]">{r.note}</span>}
+                    {r.note && <span className="mt-0.5 block font-sans text-admin-muted">{r.note}</span>}
                   </td>
                   <td className="py-2 pr-3 font-mono text-xs break-all">
                     <a className="hover:underline" href={r.to_url.replace('*', '')} target="_blank" rel="noopener">
@@ -141,13 +141,13 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
                     </a>
                   </td>
                   <td className="py-2 pr-3 text-xs">{r.status === 301 ? 'Permanent' : 'Temporary'}</td>
-                  <td className="py-2 pr-3 text-xs text-[#64748b]">
+                  <td className="py-2 pr-3 text-xs text-admin-muted">
                     {r.hits} {r.hits === 1 ? 'time' : 'times'}
                     <span className="block">last {when(r.last_hit_at)}</span>
                   </td>
                   <td className="py-2 text-right text-xs whitespace-nowrap">
                     {!r.from_path.endsWith('*') && (
-                      <a className="mr-3 text-[#b87333] hover:underline" href={r.from_path} target="_blank" rel="noopener">
+                      <a className="mr-3 text-admin-accent hover:underline" href={r.from_path} target="_blank" rel="noopener">
                         Test
                       </a>
                     )}
@@ -170,13 +170,13 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
             </tbody>
           </table>
         ) : (
-          <p className="text-sm text-[#64748b]">{rows.length ? 'No redirects match.' : 'No redirects yet.'}</p>
+          <p className="text-sm text-admin-muted">{rows.length ? 'No redirects match.' : 'No redirects yet.'}</p>
         )}
       </section>
 
       <section aria-labelledby="not-found-title">
         <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
-          <h2 id="not-found-title" className="text-sm font-semibold tracking-wider text-[#64748b] uppercase">
+          <h2 id="not-found-title" className="text-sm font-semibold tracking-wider text-admin-muted uppercase">
             Not found ({notFound.length})
           </h2>
           {notFound.length > 0 && (
@@ -185,11 +185,11 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
             </button>
           )}
         </div>
-        <p className="mb-3 text-xs text-[#64748b]">Addresses visitors reached that don't exist, most often first. Redirect the ones that should lead somewhere.</p>
+        <p className="mb-3 text-xs text-admin-muted">Addresses visitors reached that don't exist, most often first. Redirect the ones that should lead somewhere.</p>
         {notFound.length ? (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-[#64748b]">
+              <tr className="text-left text-xs text-admin-muted">
                 <th className="pb-2 font-medium">Address</th>
                 <th className="pb-2 font-medium">Visits</th>
                 <th className="pb-2 font-medium">From</th>
@@ -200,17 +200,17 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
             </thead>
             <tbody>
               {notFound.map((n) => (
-                <tr key={n.path} className="border-t border-[#1a1a2e]/10 align-top">
+                <tr key={n.path} className="border-t border-admin-ink/10 align-top">
                   <td className="py-2 pr-3 font-mono text-xs break-all">{n.path}</td>
-                  <td className="py-2 pr-3 text-xs text-[#64748b]">
+                  <td className="py-2 pr-3 text-xs text-admin-muted">
                     {n.hits}
                     <span className="block">last {when(n.last_seen_at)}</span>
                   </td>
-                  <td className="max-w-[16rem] py-2 pr-3 text-xs break-all text-[#64748b]">{n.referrer || '—'}</td>
+                  <td className="max-w-[16rem] py-2 pr-3 text-xs break-all text-admin-muted">{n.referrer || '—'}</td>
                   <td className="py-2 text-right text-xs whitespace-nowrap">
                     <button
                       type="button"
-                      className="mr-3 text-[#b87333] hover:underline"
+                      className="mr-3 text-admin-accent hover:underline"
                       onClick={() => {
                         setForm({ ...blank, from: n.path });
                         toRef.current?.focus();
@@ -219,7 +219,7 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
                     >
                       Add redirect
                     </button>
-                    <button type="button" className="text-[#64748b]" onClick={() => dismiss(n.path)}>
+                    <button type="button" className="text-admin-muted" onClick={() => dismiss(n.path)}>
                       Dismiss
                     </button>
                   </td>
@@ -228,7 +228,7 @@ export default function Redirects({ initial, notFound: initialNotFound }: { init
             </tbody>
           </table>
         ) : (
-          <p className="text-sm text-[#64748b]">Nothing yet.</p>
+          <p className="text-sm text-admin-muted">Nothing yet.</p>
         )}
       </section>
     </div>

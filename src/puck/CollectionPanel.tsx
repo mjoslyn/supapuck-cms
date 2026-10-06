@@ -28,10 +28,10 @@ const orderKey = (q: Attrs) => ORDERS.find(([, , o]) => o.orderBy === (q.orderBy
 function Choice({ title, value, options, onChange }: { title: string; value: string; options: [string, string][]; onChange: (v: string) => void }) {
   return (
     <div className="mb-3">
-      <span className="mb-1 block text-xs font-medium text-[#64748b]">{title}</span>
-      <div className="flex overflow-hidden rounded border border-[#1a1a2e]/15">
+      <span className="mb-1 block text-xs font-medium text-admin-muted">{title}</span>
+      <div className="flex overflow-hidden rounded border border-admin-ink/15">
         {options.map(([v, l]) => (
-          <button key={v} type="button" onClick={() => onChange(v)} className={`flex-1 px-2 py-1.5 text-xs ${value === v ? 'bg-[#1a1a2e] text-white' : 'bg-white text-[#1a1a2e] hover:bg-[#f5f3f0]'}`}>
+          <button key={v} type="button" onClick={() => onChange(v)} className={`flex-1 px-2 py-1.5 text-xs ${value === v ? 'bg-admin-ink text-white' : 'bg-white text-admin-ink hover:bg-admin-soft'}`}>
             {l}
           </button>
         ))}
@@ -44,14 +44,14 @@ function Choice({ title, value, options, onChange }: { title: string; value: str
 function Field({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="mb-3">
-      <span className="mb-1 block text-xs font-medium text-[#64748b]">{title}</span>
+      <span className="mb-1 block text-xs font-medium text-admin-muted">{title}</span>
       {children}
     </div>
   );
 }
 
 function Hint({ children }: { children: ReactNode }) {
-  return <p className="-mt-2 mb-3 text-[11px] text-[#64748b]">{children}</p>;
+  return <p className="-mt-2 mb-3 text-[11px] text-admin-muted">{children}</p>;
 }
 
 /** Terms of some taxonomies, as checkboxes (selected ids in `value`). */
@@ -66,7 +66,7 @@ export function TermPicker({ title, taxonomies, value, onChange }: { title: stri
   const decode = (s: string) => s.replace(/&amp;/g, '&');
   return (
     <Field title={title}>
-      <div className="max-h-40 overflow-auto rounded border border-[#1a1a2e]/10 bg-white p-1.5">
+      <div className="max-h-40 overflow-auto rounded border border-admin-ink/10 bg-white p-1.5">
         {terms.map((t) => (
           <label key={t.id} className="flex items-center gap-2 py-0.5 text-sm">
             <input type="checkbox" checked={value.includes(t.id)} onChange={(e) => onChange(e.target.checked ? [...value, t.id] : value.filter((v) => v !== t.id))} />

@@ -80,8 +80,8 @@ export function AspectSelect({ title, value, onChange, numeric, originalLabel = 
 /** A titled, collapsible group of settings; open unless `open={false}`. */
 export function Group({ title, children, open = true }: { title: string; children: ReactNode; open?: boolean }) {
   return (
-    <details open={open} className="mb-2 border-t border-[#1a1a2e]/10 pt-2">
-      <summary className="mb-2 cursor-pointer text-[11px] font-semibold tracking-wider text-[#64748b] uppercase">{title}</summary>
+    <details open={open} className="mb-2 border-t border-admin-ink/10 pt-2">
+      <summary className="mb-2 cursor-pointer text-[11px] font-semibold tracking-wider text-admin-muted uppercase">{title}</summary>
       {children}
     </details>
   );
@@ -93,11 +93,11 @@ export function Color({ title, value, onChange }: { title: string; value: string
   return (
     <FieldGroup title={title}>
       <div className="flex flex-wrap items-center gap-1.5">
-        <button type="button" onClick={() => onChange(undefined)} className={`h-6 w-6 rounded-full border text-[10px] ${!value ? 'ring-2 ring-[#b87333]' : 'border-[#1a1a2e]/20'}`} title="Default">
+        <button type="button" onClick={() => onChange(undefined)} className={`h-6 w-6 rounded-full border text-[10px] ${!value ? 'ring-2 ring-admin-accent' : 'border-admin-ink/20'}`} title="Default">
           /
         </button>
         {COLORS.map((c) => (
-          <button key={c.value} type="button" title={c.name} onClick={() => onChange(c.value)} className={`h-6 w-6 rounded-full border border-[#1a1a2e]/20 ${value === c.value ? 'ring-2 ring-[#b87333] ring-offset-1' : ''}`} style={{ background: c.hex }} />
+          <button key={c.value} type="button" title={c.name} onClick={() => onChange(c.value)} className={`h-6 w-6 rounded-full border border-admin-ink/20 ${value === c.value ? 'ring-2 ring-admin-accent ring-offset-1' : ''}`} style={{ background: c.hex }} />
         ))}
         <input className={`${inputClass} w-24 py-0.5 text-xs`} placeholder="#hex" value={custom} onChange={(e) => onChange(e.target.value || undefined)} />
       </div>
@@ -296,7 +296,7 @@ export const CONTENT_PANELS: Record<string, Panel> = {
       {a.mediaId && <Select title="Image size" value={a.size} options={IMAGE_SIZES} onChange={(v) => set({ size: v })} />}
       <AspectSelect title="Aspect ratio" value={a.aspectRatio === 'auto' ? undefined : a.aspectRatio} onChange={(v) => set({ aspectRatio: (v as string) || undefined })} />
       <Select title="Fit" value={a.scale} options={[['cover', 'Cover (crop to fill)'], ['contain', 'Contain (show the whole image)']]} onChange={(v) => set({ scale: v })} />
-      <p className="-mt-2 mb-3 text-xs text-[#64748b]">Default: cropped to fill a set aspect ratio, else the image as it is. Cover and Contain also fill the block's space (a column, a card).</p>
+      <p className="-mt-2 mb-3 text-xs text-admin-muted">Default: cropped to fill a set aspect ratio, else the image as it is. Cover and Contain also fill the block's space (a column, a card).</p>
       <Toggle title="Circle" value={a.variant === 'circle'} onChange={(v) => set({ variant: v ? 'circle' : undefined })} />
       <Toggle title="Fill the block behind the content" value={!!a.cover} onChange={(v) => set({ cover: v || undefined })} />
       <Toggle title="Shade (darker towards the bottom)" value={!!a.shade} onChange={(v) => set({ shade: v || undefined })} />
@@ -437,10 +437,10 @@ Object.assign(CONTENT_PANELS, {
       <AspectSelect title="Aspect ratio" value={a.aspectRatio === 'auto' ? undefined : a.aspectRatio} onChange={(v) => set({ aspectRatio: (v as string) || undefined })} />
       <Text title="Height" value={a.height} placeholder="200px" onChange={(v) => set({ height: v || undefined })} />
       <Select title="Fit" value={a.scale} options={[['cover', 'Cover (crop to fill)'], ['contain', 'Contain (show the whole image)']]} onChange={(v) => set({ scale: v })} />
-      <p className="-mt-2 mb-3 text-xs text-[#64748b]">Default: a set aspect ratio or height is filled (cropped; a logo field's image is shown whole), else the image as it is. Cover and Contain also fill the block's space (a card, a column).</p>
+      <p className="-mt-2 mb-3 text-xs text-admin-muted">Default: a set aspect ratio or height is filled (cropped; a logo field's image is shown whole), else the image as it is. Cover and Contain also fill the block's space (a card, a column).</p>
       <Select title="Image size" value={a.size} options={IMAGE_SIZES} onChange={(v) => set({ size: v })} />
       <Toggle title="Fill the card behind the content" value={!!a.cover} onChange={(v) => set({ cover: v || undefined })} />
-      <p className="-mt-2 mb-3 text-xs text-[#64748b]">The image covers the block it is in (a card), with the rest of the card over it at the bottom. Give the card a minimum height.</p>
+      <p className="-mt-2 mb-3 text-xs text-admin-muted">The image covers the block it is in (a card), with the rest of the card over it at the bottom. Give the card a minimum height.</p>
       <Toggle title="Shade (darker towards the bottom)" value={!!a.shade} onChange={(v) => set({ shade: v || undefined })} />
       <Row title={`Overlay (${a.dim ?? 0}%)`}>
         <input type="range" min={0} max={100} step={10} className="w-full" value={a.dim ?? 0} onChange={(e) => set({ dim: Number(e.target.value) || undefined })} />
@@ -451,12 +451,12 @@ Object.assign(CONTENT_PANELS, {
   'entry-content': (a: Attrs, set: SetFn) => (
     <>
       <Text title="Content area" value={a.area} placeholder="main" onChange={(v) => set({ area: v ? v.toLowerCase().replace(/[^a-z0-9-]+/g, '-') : undefined })} />
-      <p className="-mt-2 mb-3 text-xs text-[#64748b]">main (the default) is the page's own content. Another name (sidebar, intro...) is a separate area each page using this template fills in. Each Page content block needs its own area: a second one left as main is named area-2 when you save.</p>
+      <p className="-mt-2 mb-3 text-xs text-admin-muted">main (the default) is the page's own content. Another name (sidebar, intro...) is a separate area each page using this template fills in. Each Page content block needs its own area: a second one left as main is named area-2 when you save.</p>
       <LayoutControls a={a} set={set} />
     </>
   ),
   // Columns, spacing and the card design are the collection's settings.
-  'collection-items': () => <p className="mb-2 text-xs text-[#64748b]">The card repeated for each entry. Columns, spacing and the card design are in the collection's settings; select a block inside the first card to change the card.</p>,
+  'collection-items': () => <p className="mb-2 text-xs text-admin-muted">The card repeated for each entry. Columns, spacing and the card design are in the collection's settings; select a block inside the first card to change the card.</p>,
   'collection-empty': (a: Attrs, set: SetFn) => <StyleControls a={a} set={set} />,
   pagination: (a: Attrs, set: SetFn) => (
     <>
@@ -469,7 +469,7 @@ Object.assign(CONTENT_PANELS, {
   'pagination-numbers': (a: Attrs, set: SetFn) => <Text title="Pages either side of the current one" value={a.midSize} placeholder="2" onChange={(v) => set({ midSize: Number(v) || undefined })} />,
   'social-links': (a: Attrs, set: SetFn) => (
     <>
-      <p className="mb-3 text-xs text-[#64748b]">The links come from Settings &gt; Social.</p>
+      <p className="mb-3 text-xs text-admin-muted">The links come from Settings &gt; Social.</p>
       <Text title="Icon size (px)" value={a.size} placeholder="22" onChange={(v) => set({ size: Number(v) || undefined })} />
       <Select title="Alignment" value={a.justify} options={[['left', 'Left'], ['center', 'Center'], ['right', 'Right']]} onChange={(v) => set({ justify: v })} />
       <Toggle title="Show the network names" value={!!a.showLabels} onChange={(v) => set({ showLabels: v || undefined })} />
@@ -478,14 +478,14 @@ Object.assign(CONTENT_PANELS, {
   ),
   navigation: (a: Attrs, set: SetFn) => (
     <>
-      <p className="mb-3 text-xs text-[#64748b]">The site's menu: edit its items under Settings &gt; Menu. Items with links, an intro or cards open a panel; on small screens a menu button shows the list.</p>
+      <p className="mb-3 text-xs text-admin-muted">The site's menu: edit its items under Settings &gt; Menu. Items with links, an intro or cards open a panel; on small screens a menu button shows the list.</p>
       <Toggle title="Search button" value={a.search !== false} onChange={(v) => set({ search: v ? undefined : false })} />
       <Text title="Name for screen readers" value={a.label} placeholder="Primary" onChange={(v) => set({ label: v || undefined })} />
     </>
   ),
   'site-title': (a: Attrs, set: SetFn) => (
     <>
-      <p className="mb-3 text-xs text-[#64748b]">The site's icon and name (Settings), linking to the home page.</p>
+      <p className="mb-3 text-xs text-admin-muted">The site's icon and name (Settings), linking to the home page.</p>
       <Toggle title="Icon" value={a.icon !== false} onChange={(v) => set({ icon: v ? undefined : false })} />
       <Toggle title="Name" value={a.name !== false} onChange={(v) => set({ name: v ? undefined : false })} />
       {a.name !== false && <Text title="Before the name" value={a.prefix} placeholder="e.g. Welcome to " onChange={(v) => set({ prefix: v || undefined })} />}
@@ -493,7 +493,7 @@ Object.assign(CONTENT_PANELS, {
   ),
   map: (a: Attrs, set: SetFn) => (
     <>
-      <p className="mb-3 text-xs text-[#64748b]">Pins for the published entries of a type that have coordinates (OpenStreetMap). Each pin links to its entry.</p>
+      <p className="mb-3 text-xs text-admin-muted">Pins for the published entries of a type that have coordinates (OpenStreetMap). Each pin links to its entry.</p>
       <Select title="Show" value={a.postType} options={site.types.filter((t) => !t.hidden).map((t) => [t.type, t.label] as [string, string])} onChange={(v) => set({ postType: v || undefined })} />
       <Select title="Follow the Filters block's" value={a.taxonomy} options={site.taxonomies.map((t) => [t.name, t.label] as [string, string])} onChange={(v) => set({ taxonomy: v || undefined })} />
       <Toggle title="Only featured entries until filtered" value={!!a.featuredFirst} onChange={(v) => set({ featuredFirst: v || undefined })} />
@@ -510,7 +510,7 @@ Object.assign(CONTENT_PANELS, {
   ),
   'collection-filters': (a: Attrs, set: SetFn) => (
     <>
-      <p className="mb-3 text-xs text-[#64748b]">Filters the page's listing (on a listing, category or search page): a search box, a category's terms to add as filters, and the count. The listing updates as they change.</p>
+      <p className="mb-3 text-xs text-admin-muted">Filters the page's listing (on a listing, category or search page): a search box, a category's terms to add as filters, and the count. The listing updates as they change.</p>
       <Toggle title="Search box" value={a.search !== false} onChange={(v) => set({ search: v ? undefined : false })} />
       {a.search !== false && (
         <>
@@ -522,7 +522,7 @@ Object.assign(CONTENT_PANELS, {
       {a.taxonomy && <Text title="Dropdown placeholder" value={a.termPlaceholder} placeholder={`All ${(site.taxonomies.find((t) => t.name === a.taxonomy)?.label ?? '').toLowerCase()}`} onChange={(v) => set({ termPlaceholder: v || undefined })} />}
       <Toggle title="Show the count" value={a.count !== false} onChange={(v) => set({ count: v ? undefined : false })} />
       <FieldGroup title="Addresses">
-        <p className="mb-2 text-xs text-[#64748b]">The query-string names the filters use, e.g. to keep older links working.</p>
+        <p className="mb-2 text-xs text-admin-muted">The query-string names the filters use, e.g. to keep older links working.</p>
         {a.search !== false && <Text title="Search parameter" value={a.searchParam} placeholder="search" onChange={(v) => set({ searchParam: v.replace(/[^\w-]/g, '') || undefined })} />}
         {a.taxonomy && <Text title="Filter parameter" value={a.termParam} placeholder={a.taxonomy} onChange={(v) => set({ termParam: v.replace(/[^\w-]/g, '') || undefined })} />}
       </FieldGroup>
@@ -623,7 +623,7 @@ export const CONTENT_CONTAINERS = ['section', 'columns', 'column', 'buttons', 'q
 
 type GalleryItem = { type: 'image' | 'video' | 'embed'; attrs: Attrs };
 
-const btn = 'rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 text-xs hover:border-[#b87333]';
+const btn = 'rounded border border-admin-ink/15 bg-white px-3 py-1.5 text-xs hover:border-admin-accent';
 
 /**
  * Image and video galleries: grid, masonry or slider. Picked media are handed over as `attrs.add`;
@@ -655,7 +655,7 @@ function GalleryPanel({ a, set, video }: { a: Attrs; set: SetFn; video?: boolean
         <button type="button" className={btn} onClick={() => setPicking(true)}>
           {video ? 'Add uploaded videos' : 'Add images'}
         </button>
-        <p className="mt-1 text-[11px] text-[#64748b]">Select an item in the gallery to change, reorder or remove it.</p>
+        <p className="mt-1 text-[11px] text-admin-muted">Select an item in the gallery to change, reorder or remove it.</p>
       </FieldGroup>
       {video && (
         <FieldGroup title="Add YouTube or Vimeo links">
@@ -696,10 +696,10 @@ function GlobalPicker({ value, onChange }: { value: unknown; onChange: (ref: num
   return (
     <>
       <Select title="Global" value={id ? String(id) : undefined} options={globals.map((g) => [String(g.id), g.title || `(untitled #${g.id})`])} onChange={(v) => onChange(v ? Number(v) : undefined)} />
-      <p className="-mt-2 mb-3 text-[11px] text-[#64748b]">
+      <p className="-mt-2 mb-3 text-[11px] text-admin-muted">
         Edits to a global show everywhere it's placed.{' '}
         {id > 0 && (
-          <a className="underline hover:text-[#b87333]" href={`/admin/edit/${id}/`} target="_blank" rel="noopener">
+          <a className="underline hover:text-admin-accent" href={`/admin/edit/${id}/`} target="_blank" rel="noopener">
             Edit this global
           </a>
         )}
@@ -713,12 +713,12 @@ function IconGrid({ value, onChange, allowNone }: { value?: string; onChange: (v
   return (
     <div className="flex flex-wrap gap-1">
       {allowNone && (
-        <button type="button" onClick={() => onChange(undefined)} className={`h-7 rounded border px-1.5 text-[10px] ${!value ? 'border-[#b87333] bg-[#b87333]/10' : 'border-[#1a1a2e]/15'}`}>
+        <button type="button" onClick={() => onChange(undefined)} className={`h-7 rounded border px-1.5 text-[10px] ${!value ? 'border-admin-accent bg-admin-accent/10' : 'border-admin-ink/15'}`}>
           List icon
         </button>
       )}
       {LIST_ICONS.map(([k, label]) => (
-        <button key={k} type="button" title={label} aria-label={label} aria-pressed={value === k} onClick={() => onChange(k)} className={`flex h-7 w-7 items-center justify-center rounded border text-base ${value === k ? 'border-[#b87333] bg-[#b87333]/10 text-[#b87333]' : 'border-[#1a1a2e]/15 text-[#1a1a2e]'}`} dangerouslySetInnerHTML={{ __html: iconSvg(k) }} />
+        <button key={k} type="button" title={label} aria-label={label} aria-pressed={value === k} onClick={() => onChange(k)} className={`flex h-7 w-7 items-center justify-center rounded border text-base ${value === k ? 'border-admin-accent bg-admin-accent/10 text-admin-accent' : 'border-admin-ink/15 text-admin-ink'}`} dangerouslySetInnerHTML={{ __html: iconSvg(k) }} />
       ))}
     </div>
   );
@@ -739,10 +739,10 @@ function ListPanel({ a, set }: { a: Attrs; set: SetFn }) {
   return (
     <>
       <div className="mb-3">
-        <span className="mb-1 block text-xs font-medium text-[#64748b]">Marker</span>
-        <div className="flex overflow-hidden rounded border border-[#1a1a2e]/15">
+        <span className="mb-1 block text-xs font-medium text-admin-muted">Marker</span>
+        <div className="flex overflow-hidden rounded border border-admin-ink/15">
           {[['bullet', 'Bullets'], ['number', 'Numbers'], ['icon', 'Icon'], ['none', 'None']].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => set({ marker: k, ordered: undefined, variant: undefined, ...(k === 'icon' && !a.icon ? { icon: 'check' } : {}) })} className={`flex-1 px-2 py-1.5 text-xs ${marker === k ? 'bg-[#1a1a2e] text-white' : 'bg-white hover:bg-[#f5f3f0]'}`}>
+            <button key={k} type="button" onClick={() => set({ marker: k, ordered: undefined, variant: undefined, ...(k === 'icon' && !a.icon ? { icon: 'check' } : {}) })} className={`flex-1 px-2 py-1.5 text-xs ${marker === k ? 'bg-admin-ink text-white' : 'bg-white hover:bg-admin-soft'}`}>
               {l}
             </button>
           ))}
@@ -751,7 +751,7 @@ function ListPanel({ a, set }: { a: Attrs; set: SetFn }) {
       {marker === 'icon' && (
         <>
           <div className="mb-3">
-            <span className="mb-1 block text-xs font-medium text-[#64748b]">Icon</span>
+            <span className="mb-1 block text-xs font-medium text-admin-muted">Icon</span>
             <IconGrid value={a.icon ?? 'check'} onChange={(v) => set({ icon: v ?? 'check' })} />
           </div>
           <Color title="Icon color" value={a.iconColor} onChange={(v) => set({ iconColor: v })} />
@@ -759,23 +759,23 @@ function ListPanel({ a, set }: { a: Attrs; set: SetFn }) {
       )}
 
       <div className="mb-3">
-        <span className="mb-1 block text-xs font-medium text-[#64748b]">Items</span>
+        <span className="mb-1 block text-xs font-medium text-admin-muted">Items</span>
         {items.map((it, i) => (
-          <div key={i} className="mb-1.5 rounded border border-[#1a1a2e]/10 bg-[#faf8f5] p-1.5">
+          <div key={i} className="mb-1.5 rounded border border-admin-ink/10 bg-admin-bg p-1.5">
             <RichText title={`Item ${i + 1}`} value={it.content ?? ''} onChange={(v) => setItems(items.map((x, j) => (j === i ? { ...x, content: v } : x)))} />
             {marker === 'icon' && (
               <details open className="-mt-1 mb-1">
-                <summary className="cursor-pointer text-[11px] text-[#64748b]">Icon for this item{it.icon ? `: ${LIST_ICONS.find(([k]) => k === it.icon)?.[1] ?? it.icon}` : ''}</summary>
+                <summary className="cursor-pointer text-[11px] text-admin-muted">Icon for this item{it.icon ? `: ${LIST_ICONS.find(([k]) => k === it.icon)?.[1] ?? it.icon}` : ''}</summary>
                 <div className="mt-1">
                   <IconGrid allowNone value={it.icon} onChange={(v) => setItems(items.map((x, j) => (j === i ? { ...x, icon: v } : x)))} />
                 </div>
               </details>
             )}
-            <div className="flex gap-2 text-[11px] text-[#64748b]">
-              <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="enabled:hover:text-[#1a1a2e] disabled:opacity-30">
+            <div className="flex gap-2 text-[11px] text-admin-muted">
+              <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="enabled:hover:text-admin-ink disabled:opacity-30">
                 Up
               </button>
-              <button type="button" disabled={i === items.length - 1} onClick={() => move(i, 1)} className="enabled:hover:text-[#1a1a2e] disabled:opacity-30">
+              <button type="button" disabled={i === items.length - 1} onClick={() => move(i, 1)} className="enabled:hover:text-admin-ink disabled:opacity-30">
                 Down
               </button>
               <button type="button" onClick={() => setItems(items.filter((_, j) => j !== i))} className="ml-auto text-[#c4592a]">
@@ -785,7 +785,7 @@ function ListPanel({ a, set }: { a: Attrs; set: SetFn }) {
           </div>
         ))}
         <div className="flex gap-1.5">
-          <button type="button" onClick={() => setItems([...items, { content: '' }])} className="rounded border border-dashed border-[#1a1a2e]/25 px-3 py-1 text-xs text-[#64748b] hover:border-[#b87333] hover:text-[#b87333]">
+          <button type="button" onClick={() => setItems([...items, { content: '' }])} className="rounded border border-dashed border-admin-ink/25 px-3 py-1 text-xs text-admin-muted hover:border-admin-accent hover:text-admin-accent">
             Add item
           </button>
           <PasteLines onAdd={(lines) => setItems([...items, ...lines.map((content) => ({ content }))])} />
@@ -807,7 +807,7 @@ function PasteLines({ onAdd }: { onAdd: (lines: string[]) => void }) {
   const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   if (!open)
     return (
-      <button type="button" onClick={() => setOpen(true)} className="rounded border border-dashed border-[#1a1a2e]/25 px-3 py-1 text-xs text-[#64748b] hover:border-[#b87333] hover:text-[#b87333]">
+      <button type="button" onClick={() => setOpen(true)} className="rounded border border-dashed border-admin-ink/25 px-3 py-1 text-xs text-admin-muted hover:border-admin-accent hover:text-admin-accent">
         Paste several
       </button>
     );
@@ -817,7 +817,7 @@ function PasteLines({ onAdd }: { onAdd: (lines: string[]) => void }) {
       <div className="mt-1 flex gap-2 text-xs">
         <button
           type="button"
-          className="rounded bg-[#1a1a2e] px-2 py-1 text-white"
+          className="rounded bg-admin-ink px-2 py-1 text-white"
           onClick={() => {
             onAdd(text.split('\n').map((l) => l.replace(/^\s*([-*•]|\d+[.)])\s+/, '').trim()).filter(Boolean).map(esc));
             setText('');
@@ -826,7 +826,7 @@ function PasteLines({ onAdd }: { onAdd: (lines: string[]) => void }) {
         >
           Add lines
         </button>
-        <button type="button" className="text-[#64748b]" onClick={() => setOpen(false)}>
+        <button type="button" className="text-admin-muted" onClick={() => setOpen(false)}>
           Cancel
         </button>
       </div>

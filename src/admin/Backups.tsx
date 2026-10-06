@@ -14,7 +14,7 @@ export default function BackupsTab() {
       .then((d: { remote: string | null }) => setRemote(d.remote), (e) => setError(e.message));
   }, []);
   if (error) return <p className="text-sm text-[#b3261e]">{error}</p>;
-  if (remote === undefined) return <p className="text-sm text-[#64748b]">Loading…</p>;
+  if (remote === undefined) return <p className="text-sm text-admin-muted">Loading…</p>;
   return (
     <div className="max-w-5xl space-y-3">
       <p className="text-sm text-[#475569]">Snapshots of each site's content, and the backups a sync saves before writing. Open a site to see and manage its backups.</p>
@@ -136,74 +136,74 @@ function Backups({ site, name }: { site: 'here' | 'remote'; name: string }) {
   const since = restoring?.preview?.reduce((n, t) => n + t.since, 0) ?? 0;
 
   return (
-    <details className="rounded-sm border border-[#1a1a2e]/10 bg-white p-3" onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && !list && load()}>
+    <details className="rounded-sm border border-admin-ink/10 bg-white p-3" onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && !list && load()}>
       <summary className="cursor-pointer text-sm font-medium">Backups on {name}</summary>
       <p className="mt-2 rounded-sm bg-[#fff8eb] p-2 text-xs text-[#7a4a00]">{IMAGES_NOTE}</p>
       {error ? (
         <p className="mt-2 text-xs text-[#b3261e]">{error}</p>
       ) : !list ? (
-        <p className="mt-2 text-xs text-[#64748b]">Loading…</p>
+        <p className="mt-2 text-xs text-admin-muted">Loading…</p>
       ) : (
         <>
           <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-            <fieldset className="rounded-sm border border-[#1a1a2e]/10 p-2">
-              <legend className="px-1 text-[#64748b]">Snapshots</legend>
-              <p className="mb-2 text-[#64748b]">Everything a sync covers, as it is: entries, terms, library rows, templates, forms, settings, redirects.</p>
+            <fieldset className="rounded-sm border border-admin-ink/10 p-2">
+              <legend className="px-1 text-admin-muted">Snapshots</legend>
+              <p className="mb-2 text-admin-muted">Everything a sync covers, as it is: entries, terms, library rows, templates, forms, settings, redirects.</p>
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={schedule.enabled} onChange={(e) => setSchedule({ ...schedule, enabled: e.target.checked })} />
                 Take one
-                <select value={schedule.every} onChange={(e) => setSchedule({ ...schedule, every: e.target.value as Schedule['every'] })} className="rounded-sm border border-[#1a1a2e]/20 px-1 py-0.5">
+                <select value={schedule.every} onChange={(e) => setSchedule({ ...schedule, every: e.target.value as Schedule['every'] })} className="rounded-sm border border-admin-ink/20 px-1 py-0.5">
                   <option value="daily">every day</option>
                   <option value="weekly">every week</option>
                 </select>
               </label>
               <label className="mt-2 flex items-center gap-2">
                 Keep the last
-                <input type="number" min={0} max={1000} value={schedule.keep} onChange={(e) => setSchedule({ ...schedule, keep: Number(e.target.value) })} className="w-16 rounded-sm border border-[#1a1a2e]/20 px-1 py-0.5" />
+                <input type="number" min={0} max={1000} value={schedule.keep} onChange={(e) => setSchedule({ ...schedule, keep: Number(e.target.value) })} className="w-16 rounded-sm border border-admin-ink/20 px-1 py-0.5" />
                 snapshots (0: all)
               </label>
-              <p className="mt-2 text-[#64748b]">Scheduled snapshots run on the deployed site, at 07:00 UTC (not under astro dev).</p>
-              <button type="button" disabled={!!busy} onClick={backUpNow} className="mt-2 rounded-sm bg-[#1a1a2e] px-3 py-1 font-semibold tracking-wider text-white uppercase hover:bg-[#b87333] disabled:opacity-40">
+              <p className="mt-2 text-admin-muted">Scheduled snapshots run on the deployed site, at 07:00 UTC (not under astro dev).</p>
+              <button type="button" disabled={!!busy} onClick={backUpNow} className="mt-2 rounded-sm bg-admin-ink px-3 py-1 font-semibold tracking-wider text-white uppercase hover:bg-admin-accent disabled:opacity-40">
                 {busy === 'snapshot' ? 'Backing up…' : 'Back up now'}
               </button>
             </fieldset>
-            <fieldset className="rounded-sm border border-[#1a1a2e]/10 p-2">
-              <legend className="px-1 text-[#64748b]">Sync backups</legend>
-              <p className="mb-2 text-[#64748b]">Saved before each sync or restore into {name}: the rows it overwrote, as they were, and the rows it added.</p>
+            <fieldset className="rounded-sm border border-admin-ink/10 p-2">
+              <legend className="px-1 text-admin-muted">Sync backups</legend>
+              <p className="mb-2 text-admin-muted">Saved before each sync or restore into {name}: the rows it overwrote, as they were, and the rows it added.</p>
               <label className="flex items-center gap-2">
                 Keep the last
-                <input aria-label="Keep the last sync backups" type="number" min={0} max={1000} value={keep} onChange={(e) => setKeep(e.target.value)} className="w-16 rounded-sm border border-[#1a1a2e]/20 px-1 py-0.5" />
+                <input aria-label="Keep the last sync backups" type="number" min={0} max={1000} value={keep} onChange={(e) => setKeep(e.target.value)} className="w-16 rounded-sm border border-admin-ink/20 px-1 py-0.5" />
                 sync backups (0: all)
               </label>
             </fieldset>
           </div>
           <div className="mt-2 flex items-center gap-3">
-            <button type="button" disabled={!dirty} onClick={saveRetention} className="rounded-sm border border-[#1a1a2e]/20 px-3 py-1 text-xs disabled:opacity-40">
+            <button type="button" disabled={!dirty} onClick={saveRetention} className="rounded-sm border border-admin-ink/20 px-3 py-1 text-xs disabled:opacity-40">
               Save
             </button>
             {status && (
-              <p className="text-xs text-[#64748b]" role="status">
+              <p className="text-xs text-admin-muted" role="status">
                 {status}
               </p>
             )}
           </div>
 
           {!list.length ? (
-            <p className="mt-3 text-xs text-[#64748b]">None yet.</p>
+            <p className="mt-3 text-xs text-admin-muted">None yet.</p>
           ) : (
             <ul className="mt-3 list-none pl-0 text-xs">
               {list.map((b) => (
-                <li key={b.path} className="border-t border-[#1a1a2e]/5 py-1">
+                <li key={b.path} className="border-t border-admin-ink/5 py-1">
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex min-w-0 items-center gap-2">
                       <span className={`shrink-0 rounded-sm px-1 ${b.snapshot ? 'bg-[#e0f2fe] text-[#075985]' : 'bg-[#f1f5f9] text-[#475569]'}`}>{b.snapshot ? 'Snapshot' : 'Sync backup'}</span>
-                      <a className="truncate text-[#b87333] hover:underline" href={href(b.path)}>
+                      <a className="truncate text-admin-accent hover:underline" href={href(b.path)}>
                         {b.path}
                       </a>
                     </span>
-                    <span className="flex shrink-0 items-center gap-3 text-[#64748b]">
+                    <span className="flex shrink-0 items-center gap-3 text-admin-muted">
                       {b.size ? `${Math.max(1, Math.round(b.size / 1024))} KB` : ''}
-                      <button type="button" disabled={!!busy} className="text-[#b87333] disabled:opacity-40" onClick={() => startRestore(b)}>
+                      <button type="button" disabled={!!busy} className="text-admin-accent disabled:opacity-40" onClick={() => startRestore(b)}>
                         {busy === b.path ? 'Restoring…' : 'Restore'}
                       </button>
                       <button type="button" disabled={!!busy} className="text-[#b3261e] disabled:opacity-40" onClick={() => remove(b.path)}>
@@ -215,13 +215,13 @@ function Backups({ site, name }: { site: 'here' | 'remote'; name: string }) {
                     <div className="mt-2 rounded-sm border-2 border-[#b3261e]/50 bg-[#fff7f5] p-3">
                       <p className="font-semibold text-[#b3261e]">Restore this snapshot on {name}?</p>
                       {!restoring.preview ? (
-                        <p className="mt-1 text-[#64748b]">Comparing…</p>
+                        <p className="mt-1 text-admin-muted">Comparing…</p>
                       ) : (
                         <>
                           <p className="mt-1">Every row it holds is written back as it was then; changes made to them since are lost.</p>
                           <table className="mt-2">
                             <thead>
-                              <tr className="text-left text-[#64748b]">
+                              <tr className="text-left text-admin-muted">
                                 <th className="pr-4 font-medium">Table</th>
                                 <th className="pr-4 font-medium">Put back</th>
                                 <th className="font-medium">Made since</th>
@@ -241,15 +241,15 @@ function Backups({ site, name }: { site: 'here' | 'remote'; name: string }) {
                             <input type="checkbox" className="mt-0.5" disabled={!since} checked={restoring.deleteSince} onChange={(e) => setRestoring({ ...restoring, deleteSince: e.target.checked })} />
                             <span>
                               Also delete the {plural(since, 'row')} made since the snapshot
-                              <span className="block text-[#64748b]">Otherwise they stay. Files lose their library rows; their stored images stay.</span>
+                              <span className="block text-admin-muted">Otherwise they stay. Files lose their library rows; their stored images stay.</span>
                             </span>
                           </label>
-                          <p className="mt-2 text-[#64748b]">A snapshot of {name}'s current state is taken first, so this can be undone. Stored images aren't in snapshots: they stay as they are.</p>
+                          <p className="mt-2 text-admin-muted">A snapshot of {name}'s current state is taken first, so this can be undone. Stored images aren't in snapshots: they stay as they are.</p>
                           <div className="mt-2 flex gap-2">
                             <button type="button" disabled={!!busy} onClick={() => runRestore(b.path, restoring.deleteSince)} className="rounded-sm bg-[#b3261e] px-3 py-1 font-semibold tracking-wider text-white uppercase hover:bg-[#8c1d17] disabled:opacity-40">
                               Restore{restoring.deleteSince ? ` and delete ${since}` : ''}
                             </button>
-                            <button type="button" onClick={() => setRestoring(null)} className="rounded-sm border border-[#1a1a2e]/20 px-3 py-1">
+                            <button type="button" onClick={() => setRestoring(null)} className="rounded-sm border border-admin-ink/20 px-3 py-1">
                               Cancel
                             </button>
                           </div>

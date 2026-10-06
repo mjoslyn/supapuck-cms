@@ -1,4 +1,5 @@
 ---
+import AdminTheme from '../../../../layouts/AdminTheme.astro';
 import { SITE_TZ, site } from '../../../../lib/site';
 import '../../../../styles/tailwind.css';
 import '../../../../styles/admin.css';
@@ -14,10 +15,11 @@ const slug = Astro.params.slug!;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <script is:inline define:vars={{ siteTz: SITE_TZ }}>window.__siteTz = siteTz;</script>
+    <AdminTheme />
     <title>{slug} · {site.name} admin</title>
   </head>
-  <body class="h-screen overflow-hidden font-[Work_Sans,system-ui,sans-serif]">
-    <a href="/admin/templates/" class="fixed bottom-3 left-3 z-[2000] rounded bg-white px-3 py-1.5 text-xs text-[#64748b] shadow hover:text-[#b87333]">Back to templates</a>
+  <body class="h-screen overflow-hidden font-admin">
+    <a href="/admin/templates/" class="fixed bottom-3 left-3 z-[2000] rounded bg-white px-3 py-1.5 text-xs text-admin-muted shadow hover:text-admin-accent">Back to templates</a>
     <Editor client:only="react" template={{ kind, slug }} />
   </body>
 </html>

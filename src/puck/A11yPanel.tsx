@@ -300,7 +300,7 @@ export function A11yPanel() {
     setMarks(rest);
   };
 
-  if (!issues) return <p className="p-4 text-sm text-[#64748b]">Checking…</p>;
+  if (!issues) return <p className="p-4 text-sm text-admin-muted">Checking…</p>;
   const isChecked = (i: Issue) => !!(i.review && i.key && marks[i.key] && marks[i.key].sig === (i.sig ?? ''));
   const lapsed = (i: Issue) => !!(i.review && i.key && marks[i.key] && marks[i.key].sig !== (i.sig ?? ''));
   const open = issues.filter((i) => !isChecked(i));
@@ -313,10 +313,10 @@ export function A11yPanel() {
     <li key={`${done ? 'c' : 'o'}${n}`} className={`px-3 py-2 ${done ? 'opacity-70' : ''}`}>
       <div className="flex items-baseline gap-2">
         <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${done ? 'bg-[#6db56d]/15 text-[#3f7a3f]' : i.level === 'error' ? 'bg-[#c4592a]/15 text-[#a3441c]' : 'bg-[#e6a817]/20 text-[#7a5a08]'}`}>{done ? 'Checked' : i.level === 'error' ? 'Problem' : 'Warning'}</span>
-        <span className="text-xs text-[#64748b]">{i.rule}</span>
+        <span className="text-xs text-admin-muted">{i.rule}</span>
       </div>
       <p className="mt-1">{i.message}</p>
-      {i.sample && <p className="mt-0.5 truncate font-mono text-[11px] text-[#64748b]">{i.sample}</p>}
+      {i.sample && <p className="mt-0.5 truncate font-mono text-[11px] text-admin-muted">{i.sample}</p>}
       {done && (
         <p className="mt-1 text-xs text-[#3f7a3f]">
           Checked by {marks[i.key!].by}, {when(marks[i.key!].at)}
@@ -325,31 +325,31 @@ export function A11yPanel() {
       )}
       {!done && lapsed(i) && <p className="mt-1 text-xs text-[#7a5a08]">Marked as checked before, but it has changed since: check it again.</p>}
       <div className="mt-1 flex flex-wrap gap-3 text-xs">
-        <button type="button" className="text-[#64748b] underline hover:text-[#b87333]" onClick={() => select(i)}>
+        <button type="button" className="text-admin-muted underline hover:text-admin-accent" onClick={() => select(i)}>
           {i.blockId ? 'Select the block' : 'Show (in the template)'}
         </button>
         {done && (
-          <button type="button" className="text-[#64748b] underline hover:text-[#b87333]" onClick={() => unmark(i)}>
+          <button type="button" className="text-admin-muted underline hover:text-admin-accent" onClick={() => unmark(i)}>
             Unmark
           </button>
         )}
         {!done && i.review && noting !== i.key && (
-          <button type="button" className="text-[#64748b] underline hover:text-[#b87333]" onClick={() => (setNoting(i.key!), setNote(''))}>
+          <button type="button" className="text-admin-muted underline hover:text-admin-accent" onClick={() => (setNoting(i.key!), setNote(''))}>
             Mark as checked
           </button>
         )}
       </div>
       {!done && i.review && noting === i.key && (
         <div className="mt-2">
-          <label className="block text-xs text-[#64748b]">
+          <label className="block text-xs text-admin-muted">
             Note (optional)
-            <input className="mt-1 w-full rounded border border-[#1a1a2e]/15 bg-white px-2 py-1 text-xs" value={note} autoFocus placeholder="e.g. the overlay keeps it readable" onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mark(i)} />
+            <input className="mt-1 w-full rounded border border-admin-ink/15 bg-white px-2 py-1 text-xs" value={note} autoFocus placeholder="e.g. the overlay keeps it readable" onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && mark(i)} />
           </label>
           <div className="mt-1.5 flex gap-2 text-xs">
-            <button type="button" className="rounded bg-[#1a1a2e] px-2.5 py-1 font-semibold text-white" onClick={() => mark(i)}>
+            <button type="button" className="rounded bg-admin-ink px-2.5 py-1 font-semibold text-white" onClick={() => mark(i)}>
               Mark as checked
             </button>
-            <button type="button" className="px-1 text-[#64748b]" onClick={() => setNoting(null)}>
+            <button type="button" className="px-1 text-admin-muted" onClick={() => setNoting(null)}>
               Cancel
             </button>
           </div>
@@ -360,23 +360,23 @@ export function A11yPanel() {
 
   return (
     <div className="text-sm">
-      <div className="border-b border-[#1a1a2e]/10 p-3">
+      <div className="border-b border-admin-ink/10 p-3">
         <p className="font-medium">{open.length ? `${errors} ${errors === 1 ? 'problem' : 'problems'}, ${warnings} ${warnings === 1 ? 'warning' : 'warnings'}` : 'No problems found'}</p>
-        <p className="mt-1 text-xs text-[#64748b]">Checks the page as visitors see it (at this canvas width). Automated checks find common problems only; also try the page with a keyboard. Marking something as checked saves straight away.</p>
+        <p className="mt-1 text-xs text-admin-muted">Checks the page as visitors see it (at this canvas width). Automated checks find common problems only; also try the page with a keyboard. Marking something as checked saves straight away.</p>
         {saveNote && (
           <p className={`mt-1 text-xs ${saveNote.startsWith('Not') ? 'text-[#b3261e]' : 'text-[#3f7a3f]'}`} role="status">
             {saveNote}
           </p>
         )}
-        <button type="button" className="mt-2 rounded border border-[#1a1a2e]/15 bg-white px-2.5 py-1 text-xs hover:border-[#b87333] hover:text-[#b87333]" onClick={run}>
+        <button type="button" className="mt-2 rounded border border-admin-ink/15 bg-white px-2.5 py-1 text-xs hover:border-admin-accent hover:text-admin-accent" onClick={run}>
           Check again
         </button>
       </div>
-      <ul className="m-0 list-none divide-y divide-[#1a1a2e]/10 p-0">{open.map((i, n) => item(i, n, false))}</ul>
+      <ul className="m-0 list-none divide-y divide-admin-ink/10 p-0">{open.map((i, n) => item(i, n, false))}</ul>
       {checked.length > 0 && (
-        <details className="border-t border-[#1a1a2e]/10">
-          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-[#64748b]">Checked ({checked.length})</summary>
-          <ul className="m-0 list-none divide-y divide-[#1a1a2e]/10 p-0">{checked.map((i, n) => item(i, n, true))}</ul>
+        <details className="border-t border-admin-ink/10">
+          <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-admin-muted">Checked ({checked.length})</summary>
+          <ul className="m-0 list-none divide-y divide-admin-ink/10 p-0">{checked.map((i, n) => item(i, n, true))}</ul>
         </details>
       )}
     </div>

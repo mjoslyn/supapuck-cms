@@ -56,7 +56,7 @@ export default function Sync() {
   }, [direction, chosen]);
 
   if (error && !info) return <p className="text-sm text-[#b3261e]">{error}</p>;
-  if (!info) return <p className="text-sm text-[#64748b]">Loading…</p>;
+  if (!info) return <p className="text-sm text-admin-muted">Loading…</p>;
 
   const remote = info.remote;
   const source = direction === 'push' ? 'this site' : remote;
@@ -135,15 +135,15 @@ export default function Sync() {
 
   return (
     <div className="max-w-5xl space-y-8">
-      <section aria-labelledby="sync-here" className="rounded-sm border border-[#1a1a2e]/10 bg-white p-4">
-        <h2 id="sync-here" className="mb-2 text-sm font-semibold tracking-wider text-[#64748b] uppercase">
+      <section aria-labelledby="sync-here" className="rounded-sm border border-admin-ink/10 bg-white p-4">
+        <h2 id="sync-here" className="mb-2 text-sm font-semibold tracking-wider text-admin-muted uppercase">
           This site
         </h2>
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" className="mt-1" checked={info.protected.here} onChange={(e) => protect(e.target.checked)} />
           <span>
             Protect this site from syncs
-            <span className="block text-xs text-[#64748b]">A sync into this site, from here or from the other copy, is refused while this is on. Saved as you change it.</span>
+            <span className="block text-xs text-admin-muted">A sync into this site, from here or from the other copy, is refused while this is on. Saved as you change it.</span>
           </span>
         </label>
       </section>
@@ -152,23 +152,23 @@ export default function Sync() {
         <section className="text-sm text-[#475569]">
           <p className="mb-2">No other copy is set up, so this site can't start a sync. To sync with another copy of the site (production and a local copy, say), set these on the copy you sync from and restart it:</p>
           <pre className="rounded-sm bg-[#f1f5f9] p-3 text-xs">{'SYNC_REMOTE_NAME=Production\nSYNC_REMOTE_URL=https://<project>.supabase.co\nSYNC_REMOTE_SERVICE_KEY=<its service_role key>'}</pre>
-          <p className="mt-2 text-xs text-[#64748b]">The other copy can still protect itself here.</p>
+          <p className="mt-2 text-xs text-admin-muted">The other copy can still protect itself here.</p>
         </section>
       ) : (
         <>
           <section aria-labelledby="sync-direction">
-            <h2 id="sync-direction" className="mb-2 text-sm font-semibold tracking-wider text-[#64748b] uppercase">
+            <h2 id="sync-direction" className="mb-2 text-sm font-semibold tracking-wider text-admin-muted uppercase">
               Direction
             </h2>
             <div className="grid gap-2 sm:grid-cols-2">
               {(['push', 'pull'] as Direction[]).map((d) => {
                 const prot = d === 'push' ? info.protected.there : info.protected.here;
                 return (
-                  <label key={d} className={`flex cursor-pointer items-start gap-2 rounded-sm border p-3 text-sm ${direction === d ? 'border-[#b87333] bg-[#b87333]/5' : 'border-[#1a1a2e]/15 bg-white'}`}>
+                  <label key={d} className={`flex cursor-pointer items-start gap-2 rounded-sm border p-3 text-sm ${direction === d ? 'border-admin-accent bg-admin-accent/5' : 'border-admin-ink/15 bg-white'}`}>
                     <input type="radio" name="sync-direction" className="mt-1" checked={direction === d} onChange={() => setDirection(d)} />
                     <span>
                       <strong className="font-semibold">{d === 'push' ? `This site → ${remote}` : `${remote} → this site`}</strong>
-                      <span className="block text-xs text-[#64748b]">
+                      <span className="block text-xs text-admin-muted">
                         {d === 'push' ? `Writes to ${remote}.` : 'Writes to this site.'} {prot === true ? 'That site is protected: syncs are refused.' : typeof prot === 'string' ? `Couldn't check ${remote}: ${prot}` : ''}
                       </span>
                     </span>
@@ -180,22 +180,22 @@ export default function Sync() {
 
           <section aria-labelledby="sync-what">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <h2 id="sync-what" className="text-sm font-semibold tracking-wider text-[#64748b] uppercase">
+              <h2 id="sync-what" className="text-sm font-semibold tracking-wider text-admin-muted uppercase">
                 What to sync
               </h2>
               <span className="text-xs">
-                <button type="button" className="mr-3 text-[#b87333] hover:underline" onClick={() => setChosen(new Set(info.groups.map((g) => g.id)))}>
+                <button type="button" className="mr-3 text-admin-accent hover:underline" onClick={() => setChosen(new Set(info.groups.map((g) => g.id)))}>
                   All
                 </button>
-                <button type="button" className="text-[#b87333] hover:underline" onClick={() => setChosen(new Set())}>
+                <button type="button" className="text-admin-accent hover:underline" onClick={() => setChosen(new Set())}>
                   None
                 </button>
               </span>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               {sections.map(([title, groups]) => (
-                <fieldset key={title} className="rounded-sm border border-[#1a1a2e]/10 bg-white p-3">
-                  <legend className="px-1 text-xs font-medium text-[#64748b]">{title}</legend>
+                <fieldset key={title} className="rounded-sm border border-admin-ink/10 bg-white p-3">
+                  <legend className="px-1 text-xs font-medium text-admin-muted">{title}</legend>
                   {groups.map((g) => (
                     <label key={g.id} className="flex items-center gap-2 py-0.5 text-sm">
                       <input type="checkbox" checked={chosen.has(g.id)} onChange={(e) => toggle(g.id, e.target.checked)} />
@@ -205,27 +205,27 @@ export default function Sync() {
                 </fieldset>
               ))}
             </div>
-            <p className="mt-2 text-xs text-[#64748b]">Entries, terms, files and forms keep their ids on both sites; templates match by name, redirects by old address. A sync never deletes anything.</p>
+            <p className="mt-2 text-xs text-admin-muted">Entries, terms, files and forms keep their ids on both sites; templates match by name, redirects by old address. A sync never deletes anything.</p>
           </section>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button type="button" disabled={!chosen.size || !!busy} onClick={compare} className="rounded-sm bg-[#1a1a2e] px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333] disabled:opacity-40">
+            <button type="button" disabled={!chosen.size || !!busy} onClick={compare} className="rounded-sm bg-admin-ink px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-admin-accent disabled:opacity-40">
               Compare
             </button>
-            <p className="text-xs text-[#64748b]" role="status">
+            <p className="text-xs text-admin-muted" role="status">
               {busy}
             </p>
           </div>
           {error && <p className="text-sm text-[#b3261e]">{error}</p>}
 
           {report && (
-            <section className="rounded-sm border border-[#1a1a2e]/10 bg-white p-4 text-sm" aria-live="polite">
+            <section className="rounded-sm border border-admin-ink/10 bg-white p-4 text-sm" aria-live="polite">
               <p className="font-medium">Synced {plural(report.written, 'row')} to {target}.</p>
-              <p className="mt-1 text-xs text-[#64748b]">
+              <p className="mt-1 text-xs text-admin-muted">
                 {report.backup ? (
                   <>
                     Backup of what it overwrote, saved on {target} first:{' '}
-                    <a className="text-[#b87333] hover:underline" href={`/api/admin/sync?backups=${direction === 'push' ? 'remote' : 'here'}&file=${encodeURIComponent(report.backup)}`}>
+                    <a className="text-admin-accent hover:underline" href={`/api/admin/sync?backups=${direction === 'push' ? 'remote' : 'here'}&file=${encodeURIComponent(report.backup)}`}>
                       {report.backup}
                     </a>
                   </>
@@ -245,13 +245,13 @@ export default function Sync() {
                   </ul>
                 </>
               )}
-              <p className="mt-2 text-xs text-[#64748b]">Pages on the site's CDN may show the old content for up to a minute. Backups can be restored from the Backups tab.</p>
+              <p className="mt-2 text-xs text-admin-muted">Pages on the site's CDN may show the old content for up to a minute. Backups can be restored from the Backups tab.</p>
             </section>
           )}
 
           {result && (
             <section aria-labelledby="sync-result" className="space-y-3">
-              <h2 id="sync-result" className="text-sm font-semibold tracking-wider text-[#64748b] uppercase">
+              <h2 id="sync-result" className="text-sm font-semibold tracking-wider text-admin-muted uppercase">
                 {result.source} → {result.target}
               </h2>
               {result.groups.map((g) => (
@@ -261,7 +261,7 @@ export default function Sync() {
               {targetProtected || result.protected ? (
                 <p className="rounded-sm border border-[#b3261e]/40 bg-[#b3261e]/5 p-3 text-sm text-[#b3261e]">{cap(result.target)} is protected from syncs. Turn its protection off on its own Sync tab under Settings to sync into it.</p>
               ) : totals.added + totals.changed === 0 ? (
-                <p className="text-sm text-[#64748b]">Nothing to sync.</p>
+                <p className="text-sm text-admin-muted">Nothing to sync.</p>
               ) : (
                 <div className="rounded-sm border-2 border-[#b3261e]/50 bg-[#fff7f5] p-4 text-sm">
                   <p className="font-semibold text-[#b3261e]">This writes to {result.target}.</p>
@@ -278,7 +278,7 @@ export default function Sync() {
                     <input type="checkbox" className="mt-1" checked={keepBackup} onChange={(e) => setKeepBackup(e.target.checked)} />
                     <span>
                       Save a backup on {result.target} first
-                      <span className="block text-xs text-[#64748b]">The rows it overwrites, as they are now, and a list of the rows it adds; if it can't be saved, nothing is synced. Stored images are not backed up, only files' library rows.</span>
+                      <span className="block text-xs text-admin-muted">The rows it overwrites, as they are now, and a list of the rows it adds; if it can't be saved, nothing is synced. Stored images are not backed up, only files' library rows.</span>
                     </span>
                   </label>
                   {!keepBackup && totals.changed > 0 && <p className="mt-1 text-xs text-[#b3261e]">Without a backup, the {plural(totals.changed, 'row')} it overwrites can't be got back.</p>}
@@ -316,10 +316,10 @@ function GroupResult({ g, left, setLeft, onDiff }: { g: GroupPlan; left: Set<str
         <p className={`text-xs font-medium ${tone}`}>{title}</p>
         <ul className="mt-1 max-h-72 overflow-y-auto text-xs">
           {items.map((i) => (
-            <li key={i.key} className="flex items-center gap-2 border-t border-[#1a1a2e]/5 py-1">
+            <li key={i.key} className="flex items-center gap-2 border-t border-admin-ink/5 py-1">
               <input type="checkbox" aria-label={`Sync ${i.label}`} checked={!left.has(`${g.id}|${i.key}`)} onChange={(e) => flip(i.key, e.target.checked)} />
               <span className="min-w-0 flex-1 truncate">{i.label}</span>
-              <button type="button" className="shrink-0 text-[#b87333] hover:underline" onClick={() => onDiff(i.key, i.label)}>
+              <button type="button" className="shrink-0 text-admin-accent hover:underline" onClick={() => onDiff(i.key, i.label)}>
                 Show differences
               </button>
             </li>
@@ -328,9 +328,9 @@ function GroupResult({ g, left, setLeft, onDiff }: { g: GroupPlan; left: Set<str
       </div>
     );
   return (
-    <details className="rounded-sm border border-[#1a1a2e]/10 bg-white p-3" open={g.changed.length + g.conflicts.length > 0 && g.changed.length + g.added.length + g.conflicts.length <= 30}>
+    <details className="rounded-sm border border-admin-ink/10 bg-white p-3" open={g.changed.length + g.conflicts.length > 0 && g.changed.length + g.added.length + g.conflicts.length <= 30}>
       <summary className="cursor-pointer text-sm">
-        <span className="font-medium">{g.label}</span> <span className="text-xs text-[#64748b]">{counts}</span>
+        <span className="font-medium">{g.label}</span> <span className="text-xs text-admin-muted">{counts}</span>
       </summary>
       {g.warnings.map((w) => (
         <p key={w} className="mt-2 text-xs text-[#9a5b00]">
@@ -344,8 +344,8 @@ function GroupResult({ g, left, setLeft, onDiff }: { g: GroupPlan; left: Set<str
           <p className="text-xs font-medium text-[#9a5b00]">Conflicts (left alone)</p>
           <ul className="mt-1 max-h-48 overflow-y-auto text-xs">
             {g.conflicts.map((c) => (
-              <li key={c.key} className="border-t border-[#1a1a2e]/5 py-1">
-                {c.label}: <span className="text-[#64748b]">{c.reason}</span>
+              <li key={c.key} className="border-t border-admin-ink/5 py-1">
+                {c.label}: <span className="text-admin-muted">{c.reason}</span>
               </li>
             ))}
           </ul>
@@ -408,7 +408,7 @@ function Hunks({ lines }: { lines: Line[] }) {
     while (end < lines.length && !keep[end]) end++;
     const from = n;
     out.push(
-      <button key={`fold-${n}`} type="button" className="my-0.5 block w-full bg-[#f1f5f9] py-0.5 text-center text-[#64748b] hover:text-[#1a1a2e]" onClick={() => setOpen((s) => new Set([...s, ...Array.from({ length: end - from }, (_, k) => from + k)]))}>
+      <button key={`fold-${n}`} type="button" className="my-0.5 block w-full bg-[#f1f5f9] py-0.5 text-center text-admin-muted hover:text-admin-ink" onClick={() => setOpen((s) => new Set([...s, ...Array.from({ length: end - from }, (_, k) => from + k)]))}>
         {end - n} unchanged {end - n === 1 ? 'line' : 'lines'}
       </button>,
     );
@@ -429,7 +429,7 @@ function DiffDialog({ direction, group, rowKey, label, onClose }: { direction: D
   const changes = lines.filter((l) => l.op !== ' ').length;
   return (
     <dialog ref={ref} onClose={onClose} aria-labelledby="sync-diff-title" className="m-auto max-h-[90vh] w-[min(64rem,95vw)] rounded-sm p-0 shadow-xl backdrop:bg-black/40">
-      <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-[#1a1a2e]/10 bg-white p-4">
+      <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-admin-ink/10 bg-white p-4">
         <div className="min-w-0">
           <h2 id="sync-diff-title" className="truncate text-base font-semibold">
             {label}
@@ -438,15 +438,15 @@ function DiffDialog({ direction, group, rowKey, label, onClose }: { direction: D
             <p className="mt-1 text-xs">
               <span className="mr-3 bg-[#fdecea] px-1 text-[#8c1d17]">− {cap(data.targetName)} now</span>
               <span className="bg-[#e8f5e9] px-1 text-[#14532d]">+ {cap(data.sourceName)} (what the sync writes)</span>
-              <span className="ml-3 text-[#64748b]">{!data.target ? 'Not there yet: all of it is new.' : changes ? `${changes} changed ${changes === 1 ? 'line' : 'lines'}` : 'No differences.'}</span>
+              <span className="ml-3 text-admin-muted">{!data.target ? 'Not there yet: all of it is new.' : changes ? `${changes} changed ${changes === 1 ? 'line' : 'lines'}` : 'No differences.'}</span>
             </p>
           )}
         </div>
-        <button type="button" onClick={() => ref.current?.close()} className="shrink-0 rounded-sm border border-[#1a1a2e]/20 px-3 py-1 text-xs">
+        <button type="button" onClick={() => ref.current?.close()} className="shrink-0 rounded-sm border border-admin-ink/20 px-3 py-1 text-xs">
           Close
         </button>
       </div>
-      <div className="overflow-x-auto p-4 font-mono text-xs leading-5 whitespace-pre">{error ? <p className="font-sans text-[#b3261e]">{error}</p> : data ? <Hunks lines={lines} /> : <p className="font-sans text-[#64748b]">Loading…</p>}</div>
+      <div className="overflow-x-auto p-4 font-mono text-xs leading-5 whitespace-pre">{error ? <p className="font-sans text-[#b3261e]">{error}</p> : data ? <Hunks lines={lines} /> : <p className="font-sans text-admin-muted">Loading…</p>}</div>
     </dialog>
   );
 }

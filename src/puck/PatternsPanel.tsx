@@ -53,7 +53,7 @@ function Thumbnail({ slug, title }: { slug: string; title: string }) {
   const scale = height ? Math.min(fit, MAX_HEIGHT / height) : fit;
   const shown = height ? Math.max(40, Math.round(height * scale)) : 120;
   return (
-    <div ref={box} aria-hidden="true" className="relative overflow-hidden rounded border border-[#1a1a2e]/10 bg-[#faf8f5]" style={{ height: shown }}>
+    <div ref={box} aria-hidden="true" className="relative overflow-hidden rounded border border-admin-ink/10 bg-admin-bg" style={{ height: shown }}>
       {near && width > 0 && (
         <iframe
           src={`/admin/pattern-preview?slug=${encodeURIComponent(slug)}`}
@@ -111,26 +111,26 @@ export function PatternsPanel() {
     setNote(`Inserted "${row.title}" ${top ? 'after the selected section' : 'at the end of the page'}.`);
   };
 
-  if (!rows) return <p className="p-4 text-sm text-[#64748b]">Loading…</p>;
+  if (!rows) return <p className="p-4 text-sm text-admin-muted">Loading…</p>;
   return (
     <div className="text-sm">
-      <div className="border-b border-[#1a1a2e]/10 p-3">
+      <div className="border-b border-admin-ink/10 p-3">
         <input
           type="search"
-          className="w-full rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#b87333]"
+          className="w-full rounded border border-admin-ink/15 bg-white px-2 py-1.5 text-sm outline-none focus:border-admin-accent"
           placeholder="Search patterns"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <p className="mt-2 text-xs text-[#64748b]">Inserts the pattern after the selected section, or at the end of the page. A copy is yours to change; a Linked pattern keeps its layout and style (change its content here, the rest in the pattern). Save any block as a pattern from its settings.</p>
+        <p className="mt-2 text-xs text-admin-muted">Inserts the pattern after the selected section, or at the end of the page. A copy is yours to change; a Linked pattern keeps its layout and style (change its content here, the rest in the pattern). Save any block as a pattern from its settings.</p>
         {note && (
           <p className="mt-2 text-xs text-[#3f7a3f]" role="status">
             {note}
           </p>
         )}
       </div>
-      {!shown.length && <p className="p-4 text-[#64748b]">{rows.length ? 'No patterns match.' : 'No patterns yet. Create them from Templates.'}</p>}
-      <ul className="m-0 list-none divide-y divide-[#1a1a2e]/10 p-0">
+      {!shown.length && <p className="p-4 text-admin-muted">{rows.length ? 'No patterns match.' : 'No patterns yet. Create them from Templates.'}</p>}
+      <ul className="m-0 list-none divide-y divide-admin-ink/10 p-0">
         {shown.map((r) => (
           <li key={r.slug} className="px-3 py-3">
             <Thumbnail slug={r.slug} title={r.title || r.slug} />
@@ -138,13 +138,13 @@ export function PatternsPanel() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">
                   {r.title || r.slug}
-                  {isLinkedPattern(r.content) && <span className="ml-1.5 rounded bg-[#b87333]/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-[#8a5525] uppercase">Linked</span>}
+                  {isLinkedPattern(r.content) && <span className="ml-1.5 rounded bg-admin-accent/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-admin-accent-dark uppercase">Linked</span>}
                 </span>
-                <a href={`/admin/templates/pattern/${r.slug}/`} target="_blank" rel="noopener" className="block truncate text-[11px] text-[#64748b] hover:text-[#b87333]" title="Edit the pattern (opens in a new tab)">
+                <a href={`/admin/templates/pattern/${r.slug}/`} target="_blank" rel="noopener" className="block truncate text-[11px] text-admin-muted hover:text-admin-accent" title="Edit the pattern (opens in a new tab)">
                   {r.slug}
                 </a>
               </span>
-              <button type="button" className="shrink-0 rounded border border-[#1a1a2e]/15 bg-white px-2.5 py-1 text-xs hover:border-[#b87333] hover:text-[#b87333]" onClick={() => insert(r)}>
+              <button type="button" className="shrink-0 rounded border border-admin-ink/15 bg-white px-2.5 py-1 text-xs hover:border-admin-accent hover:text-admin-accent" onClick={() => insert(r)}>
                 Insert
               </button>
             </div>

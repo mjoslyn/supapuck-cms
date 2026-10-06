@@ -7,6 +7,23 @@
   input, select, textarea { font: inherit; }
 }
 
+/* Puck's editor in the admin's font and accent (its blue scale, dark to light, made from the accent). */
+:root {
+  --puck-font-family: var(--font-admin);
+  --puck-color-azure-01: color-mix(in oklab, var(--color-admin-accent) 30%, black);
+  --puck-color-azure-02: color-mix(in oklab, var(--color-admin-accent) 45%, black);
+  --puck-color-azure-03: color-mix(in oklab, var(--color-admin-accent) 65%, black);
+  --puck-color-azure-04: var(--color-admin-accent);
+  --puck-color-azure-05: color-mix(in oklab, var(--color-admin-accent) 80%, white);
+  --puck-color-azure-06: color-mix(in oklab, var(--color-admin-accent) 65%, white);
+  --puck-color-azure-07: color-mix(in oklab, var(--color-admin-accent) 50%, white);
+  --puck-color-azure-08: color-mix(in oklab, var(--color-admin-accent) 38%, white);
+  --puck-color-azure-09: color-mix(in oklab, var(--color-admin-accent) 25%, white);
+  --puck-color-azure-10: color-mix(in oklab, var(--color-admin-accent) 14%, white);
+  --puck-color-azure-11: color-mix(in oklab, var(--color-admin-accent) 8%, white);
+  --puck-color-azure-12: color-mix(in oklab, var(--color-admin-accent) 5%, white);
+}
+
 /* Puck fills the space under the editor's title bar (its layout is 100dvh by default). */
 .cms-editor-frame > .Puck,
 .cms-editor-frame [class*="_PuckLayout_"] {
@@ -36,6 +53,6 @@
   padding-left: 1.25em;
 }
 .email-message a {
-  color: #b87333;
+  color: var(--color-admin-accent);
   text-decoration: underline;
 }

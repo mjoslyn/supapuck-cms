@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { INPUT_TYPES } from '../lib/forms/logic';
 import type { FormDef } from '../lib/forms/types';
 
-const labelCls = 'mb-1 block text-xs font-medium text-[#64748b]';
+const labelCls = 'mb-1 block text-xs font-medium text-admin-muted';
 
 // Merge tags ----------------------------------------------------------------------------------
 
@@ -66,12 +66,12 @@ export function RichMessage({ label, value, form, onChange }: { label: string; v
     keepRange();
     emit();
   };
-  const tool = 'rounded px-2 py-0.5 hover:bg-[#f5f3f0]';
+  const tool = 'rounded px-2 py-0.5 hover:bg-admin-soft';
   return (
     <div className="mb-3" role="group" aria-label={label}>
       <span className={labelCls}>{label}</span>
-      <div className="rounded border border-[#1a1a2e]/15 bg-white focus-within:border-[#b87333]">
-        <div className="flex flex-wrap items-center gap-1 border-b border-[#1a1a2e]/10 px-1 py-1 text-xs">
+      <div className="rounded border border-admin-ink/15 bg-white focus-within:border-admin-accent">
+        <div className="flex flex-wrap items-center gap-1 border-b border-admin-ink/10 px-1 py-1 text-xs">
           <button type="button" className={`${tool} font-bold`} onMouseDown={(e) => (e.preventDefault(), cmd('bold'))} title="Bold" aria-label="Bold">B</button>
           <button type="button" className={`${tool} italic`} onMouseDown={(e) => (e.preventDefault(), cmd('italic'))} title="Italic" aria-label="Italic">I</button>
           <button type="button" className={tool} onMouseDown={(e) => (e.preventDefault(), cmd('insertUnorderedList'))} title="Bulleted list" aria-label="Bulleted list">List</button>
@@ -101,7 +101,7 @@ export function RichMessage({ label, value, form, onChange }: { label: string; v
 
 export function MergeTags({ form, onInsert }: { form: FormDef; onInsert: (tag: string) => void }) {
   return (
-    <select className="mb-1 rounded border border-[#1a1a2e]/15 bg-white px-1.5 py-0.5 text-xs text-[#64748b]" value="" onChange={(e) => e.target.value && onInsert(e.target.value)}>
+    <select className="mb-1 rounded border border-admin-ink/15 bg-white px-1.5 py-0.5 text-xs text-admin-muted" value="" onChange={(e) => e.target.value && onInsert(e.target.value)}>
       <option value="">Insert field value…</option>
       {mergeTagOptions(form).map(([tag, l]) => (
         <option key={tag} value={tag}>

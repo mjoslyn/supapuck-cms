@@ -16,8 +16,8 @@ export function LinkedContentPanel({ type, a, set }: { type: string; a: Attrs; s
   const fields = CONTENT_FIELDS[type] ?? [];
   return (
     <div>
-      <p className="mb-3 rounded bg-[#f5f3f0] px-2 py-1.5 text-xs text-[#64748b]">Part of a linked pattern: change its content here. Layout and style are set in the pattern.</p>
-      {!fields.length && <p className="mb-2 text-xs text-[#64748b]">This block has no content of its own to change.</p>}
+      <p className="mb-3 rounded bg-admin-soft px-2 py-1.5 text-xs text-admin-muted">Part of a linked pattern: change its content here. Layout and style are set in the pattern.</p>
+      {!fields.length && <p className="mb-2 text-xs text-admin-muted">This block has no content of its own to change.</p>}
       {fields.map((f) =>
         f.kind === 'rich' ? (
           <RichText key={f.key} title={f.label} value={a[f.key] ?? ''} onChange={(v) => set({ [f.key]: v || undefined })} />
@@ -43,15 +43,15 @@ export function LinkedPatternPanel({ a }: { a: Attrs }) {
     dispatch({ type: 'setData', data: replaceInData(appState.data as Data, id, unmark(item.props.children ?? [])), recordHistory: true });
   };
   return (
-    <div className="mb-3 text-xs text-[#64748b]">
+    <div className="mb-3 text-xs text-admin-muted">
       <p className="mb-2">
-        Linked pattern <strong className="text-[#1a1a2e]">{a.slug}</strong>. Change the content of its blocks here; their layout and style come from the pattern, so editing{' '}
-        <a href={`/admin/templates/pattern/${a.slug}/`} target="_blank" rel="noopener" className="text-[#b87333] underline">
+        Linked pattern <strong className="text-admin-ink">{a.slug}</strong>. Change the content of its blocks here; their layout and style come from the pattern, so editing{' '}
+        <a href={`/admin/templates/pattern/${a.slug}/`} target="_blank" rel="noopener" className="text-admin-accent underline">
           the pattern
         </a>{' '}
         changes every page that uses it.
       </p>
-      <button type="button" className="rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 text-xs text-[#1a1a2e] hover:border-[#b87333]" onClick={detach}>
+      <button type="button" className="rounded border border-admin-ink/15 bg-white px-3 py-1.5 text-xs text-admin-ink hover:border-admin-accent" onClick={detach}>
         Detach (make an ordinary copy)
       </button>
     </div>
@@ -89,19 +89,19 @@ export function SaveAsPattern() {
     setOpen(false);
   };
   return (
-    <div className="mt-4 border-t border-[#1a1a2e]/10 pt-3">
+    <div className="mt-4 border-t border-admin-ink/10 pt-3">
       {!open ? (
-        <button type="button" className="text-xs text-[#64748b] hover:text-[#b87333]" onClick={() => (setOpen(true), setStatus(''))}>
+        <button type="button" className="text-xs text-admin-muted hover:text-admin-accent" onClick={() => (setOpen(true), setStatus(''))}>
           Save as pattern…
         </button>
       ) : (
         <div className="text-xs">
-          <label className="mb-2 block text-[#64748b]">
+          <label className="mb-2 block text-admin-muted">
             Pattern name
             <input className={`${inputClass} mt-1`} value={title} autoFocus onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} />
           </label>
           <fieldset className="mb-2">
-            <legend className="mb-1 text-[#64748b]">When placed on a page</legend>
+            <legend className="mb-1 text-admin-muted">When placed on a page</legend>
             <label className="mb-1 flex items-start gap-2">
               <input type="radio" name="pattern-kind" checked={!linked} onChange={() => setLinked(false)} />
               <span>
@@ -116,10 +116,10 @@ export function SaveAsPattern() {
             </label>
           </fieldset>
           <div className="flex gap-2">
-            <button type="button" disabled={!title.trim()} className="rounded bg-[#1a1a2e] px-3 py-1.5 font-semibold text-white disabled:opacity-40" onClick={save}>
+            <button type="button" disabled={!title.trim()} className="rounded bg-admin-ink px-3 py-1.5 font-semibold text-white disabled:opacity-40" onClick={save}>
               Save pattern
             </button>
-            <button type="button" className="px-2 text-[#64748b]" onClick={() => setOpen(false)}>
+            <button type="button" className="px-2 text-admin-muted" onClick={() => setOpen(false)}>
               Cancel
             </button>
           </div>

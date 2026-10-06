@@ -10,8 +10,8 @@ import type { Media } from '../lib/types';
 import { SHAPES, position, type Point } from '../lib/media/focal';
 import { MediaModal } from '../puck/fields';
 
-const input = 'w-full rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#b87333]';
-const label = 'mb-1 block text-xs font-medium text-[#64748b]';
+const input = 'w-full rounded border border-admin-ink/15 bg-white px-2 py-1.5 text-sm outline-none focus:border-admin-accent';
+const label = 'mb-1 block text-xs font-medium text-admin-muted';
 
 type Row = Media & { processed_at?: string | null };
 /** Another image used for a crop shape, and the focal point for that use. */
@@ -106,18 +106,18 @@ export default function MediaDetail() {
         }}
       />
     )}
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1a1a2e]/50 p-6" onClick={() => setM(null)}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-admin-ink/50 p-6" onClick={() => setM(null)}>
       <div className="flex max-h-full w-full max-w-5xl overflow-hidden rounded bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-[#f1efeb] p-4">
+        <div className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-admin-soft p-4">
           {editingOther && (
-            <p className="mb-2 rounded bg-white px-2 py-1 text-xs text-[#64748b]">
+            <p className="mb-2 rounded bg-white px-2 py-1 text-xs text-admin-muted">
               The {SHAPES.find((x) => x.key === editing)?.name.toLowerCase()} crop uses another image. Click it to set its focal point for this crop; it applies only here.
             </p>
           )}
           <div className="mb-2 flex flex-wrap items-center gap-1 text-xs">
-            <span className="mr-1 text-[#64748b]">Click the image to set the focal point for</span>
+            <span className="mr-1 text-admin-muted">Click the image to set the focal point for</span>
             {[{ key: 'main', name: 'All crops' }, ...SHAPES].map((s) => (
-              <button key={s.key} type="button" onClick={() => setEditing(s.key)} className={`rounded px-2 py-0.5 ${editing === s.key ? 'bg-[#1a1a2e] text-white' : 'bg-white text-[#1a1a2e] hover:bg-[#e5e1dc]'}`}>
+              <button key={s.key} type="button" onClick={() => setEditing(s.key)} className={`rounded px-2 py-0.5 ${editing === s.key ? 'bg-admin-ink text-white' : 'bg-white text-admin-ink hover:bg-[#e5e1dc]'}`}>
                 {s.name}
               </button>
             ))}
@@ -146,7 +146,7 @@ export default function MediaDetail() {
               const o = other(s.key);
               return (
                 <figure key={s.key} className="m-0">
-                  <button type="button" onClick={() => setEditing(s.key)} className={`mx-auto block rounded ${editing === s.key ? 'ring-2 ring-[#b87333] ring-offset-2' : ''}`}>
+                  <button type="button" onClick={() => setEditing(s.key)} className={`mx-auto block rounded ${editing === s.key ? 'ring-2 ring-admin-accent ring-offset-2' : ''}`}>
                     <img
                       src={o ? otherSrc(o) : src}
                       alt=""
@@ -154,7 +154,7 @@ export default function MediaDetail() {
                       style={{ aspectRatio: s.key.replace('/', ' / '), objectPosition: position(o ? otherPoint(s.key, o) : pointFor(s.key)) }}
                     />
                   </button>
-                  <figcaption className="mt-1 text-center text-[11px] text-[#64748b]">
+                  <figcaption className="mt-1 text-center text-[11px] text-admin-muted">
                     {draft.swaps[s.key] ? (
                       <>
                         {s.name}
@@ -172,7 +172,7 @@ export default function MediaDetail() {
                         )}
                       </>
                     )}
-                    <button type="button" className="mt-0.5 block w-full text-[#b87333] hover:underline" onClick={() => setChoosing(s.key)}>
+                    <button type="button" className="mt-0.5 block w-full text-admin-accent hover:underline" onClick={() => setChoosing(s.key)}>
                       {draft.swaps[s.key] ? 'Use a different image' : 'Use another image'}
                     </button>
                   </figcaption>
@@ -184,7 +184,7 @@ export default function MediaDetail() {
         <aside className="w-80 shrink-0 overflow-y-auto p-4">
           <div className="mb-3 flex items-start justify-between gap-2">
             <p className="text-sm font-medium break-all">{m.path.split('/').pop()}</p>
-            <button type="button" className="text-sm text-[#64748b] hover:text-[#1a1a2e]" onClick={() => setM(null)}>
+            <button type="button" className="text-sm text-admin-muted hover:text-admin-ink" onClick={() => setM(null)}>
               Close
             </button>
           </div>
@@ -200,7 +200,7 @@ export default function MediaDetail() {
             <span className={label}>Caption</span>
             <textarea className={input} rows={2} value={draft.caption} onChange={(e) => setDraft({ ...draft, caption: e.target.value })} />
           </label>
-          <div className="mb-3 flex items-center justify-between text-xs text-[#64748b]">
+          <div className="mb-3 flex items-center justify-between text-xs text-admin-muted">
             <span>Main focal point: {draft.focal ? `${Math.round(focal.x * 100)}%, ${Math.round(focal.y * 100)}%` : 'centre (default)'}</span>
             {draft.focal && (
               <button type="button" className="underline" onClick={() => setDraft({ ...draft, focal: null })}>
@@ -208,11 +208,11 @@ export default function MediaDetail() {
               </button>
             )}
           </div>
-          <button type="button" disabled={!changed || status.startsWith('Saving')} onClick={save} className="w-full rounded bg-[#b87333] px-4 py-2 text-sm font-medium text-white hover:bg-[#9a5f2a] disabled:opacity-40">
+          <button type="button" disabled={!changed || status.startsWith('Saving')} onClick={save} className="w-full rounded bg-admin-accent px-4 py-2 text-sm font-medium text-white hover:bg-admin-accent-dark disabled:opacity-40">
             Save
           </button>
-          {status && <p className={`mt-2 text-xs ${status === 'Saved' ? 'text-[#047857]' : 'text-[#64748b]'}`}>{status}</p>}
-          <dl className="mt-5 space-y-1 border-t border-[#1a1a2e]/10 pt-3 text-xs text-[#64748b]">
+          {status && <p className={`mt-2 text-xs ${status === 'Saved' ? 'text-[#047857]' : 'text-admin-muted'}`}>{status}</p>}
+          <dl className="mt-5 space-y-1 border-t border-admin-ink/10 pt-3 text-xs text-admin-muted">
             <div className="flex justify-between">
               <dt>Dimensions</dt>
               <dd>{m.width && m.height ? `${m.width} × ${m.height}` : '-'}</dd>
@@ -230,7 +230,7 @@ export default function MediaDetail() {
               <dd>{Object.keys(m.sizes ?? {}).filter((k) => k !== 'original_image').length}</dd>
             </div>
           </dl>
-          <a href={mediaUrl(m.path)} target="_blank" className="mt-3 inline-block text-xs text-[#64748b] underline hover:text-[#b87333]">
+          <a href={mediaUrl(m.path)} target="_blank" className="mt-3 inline-block text-xs text-admin-muted underline hover:text-admin-accent">
             Open original
           </a>
         </aside>

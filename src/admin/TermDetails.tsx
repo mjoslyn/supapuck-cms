@@ -91,50 +91,50 @@ export default function TermDetails({ taxonomy }: { taxonomy: string }) {
   const f = term?.fields ?? {};
   return (
     <dialog ref={ref} aria-labelledby="term-details-title" className="m-auto max-h-[90vh] w-[min(40rem,95vw)] rounded-sm p-0 shadow-xl backdrop:bg-black/40">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#1a1a2e]/10 bg-white px-5 py-3">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-admin-ink/10 bg-white px-5 py-3">
         <h2 id="term-details-title" className="truncate text-base font-semibold">
           {term ? term.name.replace(/&#8217;/g, '’').replace(/&#038;|&amp;/g, '&') : taxonomySingular(taxonomy)}
         </h2>
         <div className="flex shrink-0 items-center gap-2">
           {status && (
-            <span className="text-xs text-[#64748b]" role="status">
+            <span className="text-xs text-admin-muted" role="status">
               {status}
             </span>
           )}
-          <button type="button" onClick={() => ref.current?.close()} className="rounded-sm border border-[#1a1a2e]/20 px-3 py-1 text-xs">
+          <button type="button" onClick={() => ref.current?.close()} className="rounded-sm border border-admin-ink/20 px-3 py-1 text-xs">
             Cancel
           </button>
-          <button type="button" disabled={!term} onClick={save} className="rounded-sm bg-[#1a1a2e] px-3 py-1 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333] disabled:opacity-40">
+          <button type="button" disabled={!term} onClick={save} className="rounded-sm bg-admin-ink px-3 py-1 text-xs font-semibold tracking-wider text-white uppercase hover:bg-admin-accent disabled:opacity-40">
             Save
           </button>
         </div>
       </div>
       {!term ? (
-        <p className="p-5 text-sm text-[#64748b]">{status || 'Loading…'}</p>
+        <p className="p-5 text-sm text-admin-muted">{status || 'Loading…'}</p>
       ) : (
         <div className="space-y-5 p-5 text-sm">
-          <section className="rounded-sm border border-[#1a1a2e]/10 bg-[#f8fafc] p-3">
-            <label className="mb-1 block text-xs font-semibold tracking-wider text-[#64748b] uppercase" htmlFor="term-notes">
+          <section className="rounded-sm border border-admin-ink/10 bg-[#f8fafc] p-3">
+            <label className="mb-1 block text-xs font-semibold tracking-wider text-admin-muted uppercase" htmlFor="term-notes">
               Write with Claude
             </label>
             <textarea id="term-notes" rows={2} className={inputClass} placeholder="Anything Claude should know (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
             <div className="mt-2 flex items-center gap-3">
-              <button type="button" disabled={writing} onClick={write} className="shrink-0 rounded-sm border border-[#1a1a2e]/20 bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:border-[#1a1a2e]/50 disabled:opacity-40">
+              <button type="button" disabled={writing} onClick={write} className="shrink-0 rounded-sm border border-admin-ink/20 bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap hover:border-admin-ink/50 disabled:opacity-40">
                 {writing ? 'Writing…' : 'Write with Claude'}
               </button>
-              <span className="text-xs text-[#64748b]">Fills in the description, search title, meta description{defs.some((d) => 'compose' in d && d.compose) ? ' and fields' : ''} from the {taxonomySingular(taxonomy).toLowerCase()}'s name and what is filed under it. Nothing is saved until you Save.</span>
+              <span className="text-xs text-admin-muted">Fills in the description, search title, meta description{defs.some((d) => 'compose' in d && d.compose) ? ' and fields' : ''} from the {taxonomySingular(taxonomy).toLowerCase()}'s name and what is filed under it. Nothing is saved until you Save.</span>
             </div>
           </section>
           <section>
-            <label className="mb-1 block text-xs font-semibold tracking-wider text-[#64748b] uppercase" htmlFor="term-description">
+            <label className="mb-1 block text-xs font-semibold tracking-wider text-admin-muted uppercase" htmlFor="term-description">
               Description
             </label>
             <textarea id="term-description" rows={4} className={inputClass} value={term.description ?? ''} onChange={(e) => set({ description: e.target.value })} />
-            <p className="mt-1 text-xs text-[#64748b]">Shown by the Excerpt block on its page, and the meta description when SEO has none.</p>
+            <p className="mt-1 text-xs text-admin-muted">Shown by the Excerpt block on its page, and the meta description when SEO has none.</p>
           </section>
           <section>
             <MediaPicker title="Featured image" url={f.image_url} onSelect={(m) => set({ fields: { ...f, image: m.id ?? m.mediaId ?? undefined, image_url: m.url } })} />
-            <p className="-mt-2 text-xs text-[#64748b]">Shown by the Featured image block on its page, and when it is shared. Without one, the taxonomy's (Settings &gt; Types) is used.</p>
+            <p className="-mt-2 text-xs text-admin-muted">Shown by the Featured image block on its page, and when it is shared. Without one, the taxonomy's (Settings &gt; Types) is used.</p>
             {!!f.image && (
               <button type="button" className="mt-1 text-xs text-[#b3261e]" onClick={() => set({ fields: { ...f, image: undefined, image_url: undefined } })}>
                 Remove featured image
@@ -143,14 +143,14 @@ export default function TermDetails({ taxonomy }: { taxonomy: string }) {
           </section>
           {defs.length > 0 && (
             <section>
-              <h3 className="mb-2 text-xs font-semibold tracking-wider text-[#64748b] uppercase">Fields</h3>
+              <h3 className="mb-2 text-xs font-semibold tracking-wider text-admin-muted uppercase">Fields</h3>
               <FieldsForm defs={defs} value={f} onChange={(v) => set({ fields: v })} />
             </section>
           )}
           <section>
-            <h3 className="mb-2 text-xs font-semibold tracking-wider text-[#64748b] uppercase">SEO</h3>
+            <h3 className="mb-2 text-xs font-semibold tracking-wider text-admin-muted uppercase">SEO</h3>
             <SeoForm type={taxonomySingular(taxonomy)} title={term.name} excerpt={term.description ?? ''} fields={f} path={term.link ?? ''} onChange={(v) => set({ fields: v })} />
-            <p className="mt-1 text-xs text-[#64748b]">When empty: the search title is the taxonomy's (Settings &gt; Types), else the term's name; the meta description is the term's description, else the taxonomy's; the share image is the term's featured image, else the taxonomy's.</p>
+            <p className="mt-1 text-xs text-admin-muted">When empty: the search title is the taxonomy's (Settings &gt; Types), else the term's name; the meta description is the term's description, else the taxonomy's; the share image is the term's featured image, else the taxonomy's.</p>
           </section>
         </div>
       )}
