@@ -186,12 +186,12 @@ export function JsonAttrs({ value, onChange }: { value: Attrs; onChange: (v: Att
 
 // Media ----------------------------------------------------------------------------------------
 
-export function MediaPicker({ title, url, onSelect }: { title: string; url?: string; onSelect: (m: { url: string; id: number | null; mediaId?: number; alt: string; width?: number | null; height?: number | null }) => void }) {
+export function MediaPicker({ title, url, onSelect, fit = 'cover' }: { title: string; url?: string; fit?: 'cover' | 'contain'; onSelect: (m: { url: string; id: number | null; mediaId?: number; alt: string; width?: number | null; height?: number | null }) => void }) {
   const [open, setOpen] = useState(false);
   return (
     <FieldGroup title={title}>
       <div className="flex items-center gap-2">
-        {url ? <img src={url} alt="" className="h-14 w-20 rounded border border-admin-ink/10 object-cover" /> : <div className="h-14 w-20 rounded border border-dashed border-admin-ink/20" />}
+        {url ? <img src={url} alt="" className={`h-14 w-20 rounded border border-admin-ink/10 ${fit === 'contain' ? 'object-contain p-1' : 'object-cover'}`} /> : <div className="h-14 w-20 rounded border border-dashed border-admin-ink/20" />}
         <button type="button" className="rounded border border-admin-ink/15 bg-white px-3 py-1.5 text-xs hover:border-admin-accent" onClick={() => setOpen(true)}>
           {url ? 'Replace' : 'Choose'}
         </button>

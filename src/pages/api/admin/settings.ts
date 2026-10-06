@@ -1,11 +1,14 @@
 import type { APIRoute } from 'astro';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { ARCHIVE_PATHS, CONTENT_TYPES, isTimezone, SEARCHABLE_TYPES, SITE_TZ, site as config } from '../../../lib/site';
 import { moveEventsToTimezone, refreshSiteTimezone } from '../../../lib/site/timezone';
 import { socialLinks } from '../../../lib/social/links';
 import { makeSiteIcons } from '../../../lib/media/site-icon';
 import { MediaStore } from '../../../lib/media/process';
 import { serviceClient } from '../../../lib/supabase';
-import { adminThemeFrom, loadAdminTheme } from '../../../lib/admin-theme';
+import { adminThemeFrom, loadAdminTheme, type AdminTheme } from '../../../lib/admin-theme';
+import { downsize, mediaUrl, versioned } from '../../../lib/media/image';
+import type { Media } from '../../../lib/types';
 
 /** Templates chosen per type ({ [type]: { single, archive } }): known types, template-like slugs. */
 function templatesFrom(v: unknown): Record<string, { single?: string; archive?: string }> | undefined {
@@ -70,6 +73,17 @@ function searchTypesFrom(v: unknown): string[] | undefined {
   return picked.length === SEARCHABLE_TYPES.length ? undefined : picked;
 }
 
+/** The admin theme posted, its logo's URL made here from the media row (a size fit for the menu bar). */
+async function adminThemeWithLogo(db: SupabaseClient, v: unknown): Promise<AdminTheme | undefined> {
+  const id = Number((v as AdminTheme | undefined)?.logo) || 0;
+  let logo_url: string | undefined;
+  if (id > 0) {
+    const { data: m } = await db.from('media').select('*').eq('id', id).maybeSingle<Media>();
+    if (m) logo_url = versioned(m, mediaUrl(downsize(m, 'medium_large').path));
+  }
+  return adminThemeFrom({ ...(v as object), logo_url });
+}
+
 /** Update the site identity, timezone and the site's own options. Only known keys are writable. */
 export const PUT: APIRoute = async ({ request, locals }) => {
   const body = await request.json();
@@ -77,7 +91,7 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   const timezone = body.site?.timezone || undefined;
   if (timezone && !isTimezone(timezone)) return new Response(`Unknown timezone: ${timezone}`, { status: 400 });
   const before = current?.value?.timezone || config.timezone;
-  const site = { ...(current?.value ?? {}), name: body.site?.name, description: body.site?.description, front_page_id: body.site?.front_page_id ?? null, timezone, search_types: searchTypesFrom(body.site?.search_types), templates: templatesFrom(body.site?.templates), taxonomy_templates: taxonomyTemplatesFrom(body.site?.taxonomy_templates), taxonomy_pages_off: taxonomyPagesOffFrom(body.site?.taxonomy_pages_off), taxonomy_meta: pageMetaFrom(body.site?.taxonomy_meta, config.taxonomies.map((t) => t.name)), listing_meta: pageMetaFrom(body.site?.listing_meta, Object.keys(ARCHIVE_PATHS)), listings_off: listingsOffFrom(body.site?.listings_off), social: socialLinks(body.site), share_image: Number(body.site?.share_image) || undefined, share_image_url: body.site?.share_image ? String(body.site?.share_image_url ?? '') : undefined, admin_theme: adminThemeFrom(body.site?.admin_theme) };
+  const site = { ...(current?.value ?? {}), name: body.site?.name, description: body.site?.description, front_page_id: body.site?.front_page_id ?? null, timezone, search_types: searchTypesFrom(body.site?.search_types), templates: templatesFrom(body.site?.templates), taxonomy_templates: taxonomyTemplatesFrom(body.site?.taxonomy_templates), taxonomy_pages_off: taxonomyPagesOffFrom(body.site?.taxonomy_pages_off), taxonomy_meta: pageMetaFrom(body.site?.taxonomy_meta, config.taxonomies.map((t) => t.name)), listing_meta: pageMetaFrom(body.site?.listing_meta, Object.keys(ARCHIVE_PATHS)), listings_off: listingsOffFrom(body.site?.listings_off), social: socialLinks(body.site), share_image: Number(body.site?.share_image) || undefined, share_image_url: body.site?.share_image ? String(body.site?.share_image_url ?? '') : undefined, admin_theme: await adminThemeWithLogo(locals.db, body.site?.admin_theme) };
   const rows = [{ key: 'site', value: site }, ...(body.options ? [{ key: 'options', value: body.options }] : [])];
   // The site icon: a newly chosen image is made into the icon files; removing it removes them.
   if (body.site && 'icon_media_id' in body.site) {
