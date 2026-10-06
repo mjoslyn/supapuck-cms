@@ -26,7 +26,7 @@ const PANELS: Record<string, Panel> = {
       {/* The event type's taxonomies (none: no category picker). */}
       {taxonomiesOf('event').length > 0 && <TermPicker title="Categories (any of)" taxonomies={taxonomiesOf('event')} value={(a.categories ?? []).map(Number)} onChange={(ids) => set({ categories: ids.length ? ids : undefined })} />}
       <TermPicker title="Tagged with (any of)" taxonomies={['tag']} value={(a.tags ?? []).map(Number)} onChange={(ids) => set({ tags: ids.length ? ids : undefined })} />
-      <p className="mb-2 text-xs text-[#64748b]">Visitors switch between Calendar and List, and page through months, without leaving the page.</p>
+      <p className="mb-2 text-xs text-admin-muted">Visitors switch between Calendar and List, and page through months, without leaving the page.</p>
     </>
   ),
 };
@@ -134,7 +134,7 @@ function AttrsPanel({ type, value, onChange }: { type: string; value: Attrs; onC
   if (type === 'pattern' && a.linked) return <div className="px-1"><LinkedPatternPanel a={a} /></div>;
   return (
     <div className="px-1">
-      {panel ? panel(a, set) : <p className="mb-2 text-xs text-[#64748b]">Configure this block in the attributes below.</p>}
+      {panel ? panel(a, set) : <p className="mb-2 text-xs text-admin-muted">Configure this block in the attributes below.</p>}
       <JsonAttrs value={a} onChange={onChange} />
       <SaveAsPattern />
     </div>

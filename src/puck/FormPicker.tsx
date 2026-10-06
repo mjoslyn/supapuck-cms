@@ -23,7 +23,7 @@ export function FormPicker({ value, onChange }: { value: number | undefined; onC
           </option>
         ))}
       </select>
-      <a href="/admin/forms/" target="_blank" className="mt-1 inline-block text-xs text-[#64748b] underline hover:text-[#b87333]">
+      <a href="/admin/forms/" target="_blank" className="mt-1 inline-block text-xs text-admin-muted underline hover:text-admin-accent">
         Manage forms
       </a>
     </Row>

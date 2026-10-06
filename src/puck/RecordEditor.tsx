@@ -24,7 +24,7 @@ export default function RecordEditor({ entryId, singular }: { entryId: number; s
       .then(({ data }) => setUsedBy((data ?? []) as Ref[]));
   }, [entryId]);
 
-  if (!rec) return <p className="text-[#64748b]">Loading…</p>;
+  if (!rec) return <p className="text-admin-muted">Loading…</p>;
   const set = (patch: Partial<Record_>) => {
     setRec({ ...rec, ...patch });
     setDirty(true);
@@ -48,28 +48,28 @@ export default function RecordEditor({ entryId, singular }: { entryId: number; s
 
   return (
     <div className="grid gap-8 md:grid-cols-[minmax(0,1fr)_280px]">
-      <section className="rounded-lg border border-[#1a1a2e]/10 bg-white p-6">
+      <section className="rounded-lg border border-admin-ink/10 bg-white p-6">
         <Text title="Name" value={rec.title} onChange={(x) => set({ title: x })} />
         <Select title="Status" value={rec.status} options={[['publish', 'Published'], ['draft', 'Draft']]} onChange={(x) => set({ status: x ?? 'draft' })} />
         <FieldsForm defs={fieldsFor(rec.type)} value={rec.fields ?? {}} onChange={(fields) => set({ fields })} />
         <div className="mt-2 flex items-center gap-4">
-          <button type="button" onClick={save} className="rounded-sm bg-[#1a1a2e] px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">Save</button>
-          <span className="text-xs text-[#64748b]">{status || (dirty ? 'Unsaved changes' : '')}</span>
+          <button type="button" onClick={save} className="rounded-sm bg-admin-ink px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-admin-accent">Save</button>
+          <span className="text-xs text-admin-muted">{status || (dirty ? 'Unsaved changes' : '')}</span>
         </div>
       </section>
       <aside>
-        <h2 className="mb-2 text-xs font-semibold tracking-wider text-[#64748b] uppercase">Events at this {singular.toLowerCase()}</h2>
+        <h2 className="mb-2 text-xs font-semibold tracking-wider text-admin-muted uppercase">Events at this {singular.toLowerCase()}</h2>
         {usedBy.length ? (
           <ul className="space-y-1 text-sm">
             {usedBy.map((e) => (
               <li key={e.id}>
-                <a href={`/admin/edit/${e.id}/`} className="hover:text-[#b87333]">{e.title || '(no title)'}</a>
-                {e.event_start && <span className="ml-2 text-xs text-[#64748b]">{new Date(e.event_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: SITE_TZ })}</span>}
+                <a href={`/admin/edit/${e.id}/`} className="hover:text-admin-accent">{e.title || '(no title)'}</a>
+                {e.event_start && <span className="ml-2 text-xs text-admin-muted">{new Date(e.event_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: SITE_TZ })}</span>}
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-[#64748b]">None yet. Choose this {singular.toLowerCase()} in an event's details.</p>
+          <p className="text-sm text-admin-muted">None yet. Choose this {singular.toLowerCase()} in an event's details.</p>
         )}
       </aside>
     </div>

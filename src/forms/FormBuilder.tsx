@@ -13,9 +13,9 @@ import { MergeTags } from './rich-message';
 import EmailBuilder from './EmailBuilder';
 import { emailFromMessage } from '../lib/forms/email';
 
-const input = 'w-full rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#b87333]';
-const labelCls = 'mb-1 block text-xs font-medium text-[#64748b]';
-const btn = 'rounded border border-[#1a1a2e]/15 bg-white px-2.5 py-1 text-xs hover:border-[#b87333] hover:text-[#b87333] disabled:opacity-40';
+const input = 'w-full rounded border border-admin-ink/15 bg-white px-2 py-1.5 text-sm outline-none focus:border-admin-accent';
+const labelCls = 'mb-1 block text-xs font-medium text-admin-muted';
+const btn = 'rounded border border-admin-ink/15 bg-white px-2.5 py-1 text-xs hover:border-admin-accent hover:text-admin-accent disabled:opacity-40';
 
 interface Row {
   id: number;
@@ -80,8 +80,8 @@ function Check({ label, value, onChange }: { label: string; value: unknown; onCh
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <details open className="border-t border-[#1a1a2e]/10 py-3">
-      <summary className="mb-2 cursor-pointer text-[11px] font-semibold tracking-wider text-[#64748b] uppercase">{title}</summary>
+    <details open className="border-t border-admin-ink/10 py-3">
+      <summary className="mb-2 cursor-pointer text-[11px] font-semibold tracking-wider text-admin-muted uppercase">{title}</summary>
       {children}
     </details>
   );
@@ -126,14 +126,14 @@ function ChoicesEditor({ form, field, onChange }: { form: FormDef; field: Field;
     <div className="mb-3">
       <div className="mb-1 flex items-center justify-between">
         <span className={labelCls}>Choices</span>
-        <button type="button" className="text-xs text-[#64748b] underline" onClick={() => setBulk(bulk == null ? choices.map((c) => (field.choiceValues && c.value !== c.label ? `${c.label} | ${c.value}` : c.label)).join('\n') : null)}>
+        <button type="button" className="text-xs text-admin-muted underline" onClick={() => setBulk(bulk == null ? choices.map((c) => (field.choiceValues && c.value !== c.label ? `${c.label} | ${c.value}` : c.label)).join('\n') : null)}>
           {bulk == null ? 'Edit as list' : 'Cancel'}
         </button>
       </div>
       {bulk != null ? (
         <>
           <textarea className={input} rows={6} value={bulk} onChange={(e) => setBulk(e.target.value)} />
-          {field.choiceValues && <p className="mt-1 text-xs text-[#64748b]">One per line; "Label | value" for a value different from the label.</p>}
+          {field.choiceValues && <p className="mt-1 text-xs text-admin-muted">One per line; "Label | value" for a value different from the label.</p>}
           <button
             type="button"
             className={`${btn} mt-1`}
@@ -164,10 +164,10 @@ function ChoicesEditor({ form, field, onChange }: { form: FormDef; field: Field;
               <input type={multi ? 'checkbox' : 'radio'} title="Selected by default" checked={!!c.selected} onChange={(e) => set(i, { selected: e.target.checked || undefined })} onClick={() => !multi && c.selected && set(i, { selected: undefined })} />
               <input className={`${input} py-1`} value={c.label} onChange={(e) => set(i, { label: e.target.value })} onBlur={() => c.label !== c.label.trim() && set(i, { label: c.label.trim() })} />
               {field.choiceValues && <input className={`${input} w-24 py-1`} placeholder="Value" value={c.value} onChange={(e) => set(i, { value: e.target.value })} onBlur={() => c.value !== c.value.trim() && set(i, { value: c.value.trim() })} />}
-              <button type="button" className="px-1 text-xs text-[#64748b] disabled:opacity-30" disabled={i === 0} onClick={() => move(i, -1)} title="Move up">
+              <button type="button" className="px-1 text-xs text-admin-muted disabled:opacity-30" disabled={i === 0} onClick={() => move(i, -1)} title="Move up">
                 Up
               </button>
-              <button type="button" className="px-1 text-xs text-[#64748b] disabled:opacity-30" disabled={i === choices.length - 1} onClick={() => move(i, 1)} title="Move down">
+              <button type="button" className="px-1 text-xs text-admin-muted disabled:opacity-30" disabled={i === choices.length - 1} onClick={() => move(i, 1)} title="Move down">
                 Dn
               </button>
               <button type="button" className="px-1 text-xs text-[#b91c1c]" onClick={() => remove(i)} title="Remove">
@@ -230,7 +230,7 @@ function LogicEditor({ form, field, onChange }: { form: FormDef; field: Field; o
         const src = sources.find((f) => f.id === r.field);
         const opts = src?.choices?.length ? src.choices : null;
         return (
-          <div key={i} className="rounded border border-[#1a1a2e]/10 bg-[#faf8f5] p-2">
+          <div key={i} className="rounded border border-admin-ink/10 bg-admin-bg p-2">
             <select className={`${input} mb-1 py-1`} value={r.field} onChange={(e) => setRule(i, { field: e.target.value, value: '' })}>
               {sources.map((f) => (
                 <option key={f.id} value={f.id}>
@@ -548,7 +548,7 @@ export default function FormBuilder({ formId }: { formId: number }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [save]);
 
-  if (!row) return <div className="p-10 text-sm text-[#64748b]">{status?.text ?? 'Loading form...'}</div>;
+  if (!row) return <div className="p-10 text-sm text-admin-muted">{status?.text ?? 'Loading form...'}</div>;
 
   const form: FormDef = { ...row.definition, id: row.id, title: row.title };
   const setForm = (patch: Partial<FormDef>) => setRow({ ...row, definition: { ...row.definition, ...patch } });
@@ -640,38 +640,38 @@ export default function FormBuilder({ formId }: { formId: number }) {
       {emailIndex >= 0 && (
         <EmailBuilder formId={row.id} form={form} notification={row.notifications[emailIndex]} onChange={(patch) => setNotification(emailIndex, patch)} onClose={() => setEmailFor(null)} />
       )}
-      <div className="flex items-center gap-4 border-b border-[#1a1a2e]/10 bg-white px-4 py-2">
-        <a href="/admin/forms/" className="text-sm text-[#64748b] hover:text-[#b87333]">
+      <div className="flex items-center gap-4 border-b border-admin-ink/10 bg-white px-4 py-2">
+        <a href="/admin/forms/" className="text-sm text-admin-muted hover:text-admin-accent">
           Forms
         </a>
         <span className="text-[#cbd5e1]">/</span>
-        <input className="min-w-0 flex-1 rounded border border-transparent px-2 py-1 font-[Fraunces,Georgia,serif] text-lg hover:border-[#1a1a2e]/10 focus:border-[#b87333] focus:outline-none" value={row.title} onChange={(e) => setRow({ ...row, title: e.target.value })} />
+        <input className="min-w-0 flex-1 rounded border border-transparent px-2 py-1 text-lg hover:border-admin-ink/10 focus:border-admin-accent focus:outline-none" value={row.title} onChange={(e) => setRow({ ...row, title: e.target.value })} />
         <nav className="flex gap-1 text-sm">
           {TABS.map(([k, l]) => (
-            <button key={k} type="button" onClick={() => setTab(k)} className={`rounded px-3 py-1.5 ${tab === k ? 'bg-[#1a1a2e] text-white' : 'text-[#64748b] hover:bg-[#f5f3f0]'}`}>
+            <button key={k} type="button" onClick={() => setTab(k)} className={`rounded px-3 py-1.5 ${tab === k ? 'bg-admin-ink text-white' : 'text-admin-muted hover:bg-admin-soft'}`}>
               {l}
             </button>
           ))}
         </nav>
-        <a href={`/admin/submissions/?form=${row.id}`} className="text-sm text-[#64748b] hover:text-[#b87333]">
+        <a href={`/admin/submissions/?form=${row.id}`} className="text-sm text-admin-muted hover:text-admin-accent">
           Submissions{submissions != null ? ` (${submissions})` : ''}
         </a>
-        <label className="flex items-center gap-1.5 text-sm text-[#64748b]">
+        <label className="flex items-center gap-1.5 text-sm text-admin-muted">
           <input type="checkbox" checked={row.is_active} onChange={(e) => setRow({ ...row, is_active: e.target.checked })} />
           Active
         </label>
-        <span className={`w-28 text-right text-xs ${status?.kind === 'error' ? 'text-[#b91c1c]' : 'text-[#64748b]'}`}>{status?.text ?? (dirty ? 'Unsaved changes' : '')}</span>
-        <button type="button" onClick={save} disabled={!dirty || status?.kind === 'busy'} className="rounded bg-[#b87333] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#9a5f2a] disabled:opacity-40">
+        <span className={`w-28 text-right text-xs ${status?.kind === 'error' ? 'text-[#b91c1c]' : 'text-admin-muted'}`}>{status?.text ?? (dirty ? 'Unsaved changes' : '')}</span>
+        <button type="button" onClick={save} disabled={!dirty || status?.kind === 'busy'} className="rounded bg-admin-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-admin-accent-dark disabled:opacity-40">
           Save
         </button>
       </div>
 
       <div className="flex min-h-0 flex-1">
         {tab === 'build' && (
-          <aside className="w-56 shrink-0 overflow-y-auto border-r border-[#1a1a2e]/10 bg-[#faf8f5] p-3">
+          <aside className="w-56 shrink-0 overflow-y-auto border-r border-admin-ink/10 bg-admin-bg p-3">
             {(['Standard', 'Advanced', 'Layout'] as const).map((group) => (
               <div key={group} className="mb-4">
-                <div className="mb-2 text-[11px] font-semibold tracking-wider text-[#64748b] uppercase">{group}</div>
+                <div className="mb-2 text-[11px] font-semibold tracking-wider text-admin-muted uppercase">{group}</div>
                 <div className="grid grid-cols-1 gap-1">
                   {FIELD_TYPES.filter((ft) => ft.group === group).map((ft) => (
                     <button
@@ -680,7 +680,7 @@ export default function FormBuilder({ formId }: { formId: number }) {
                       draggable
                       onDragStart={(e) => e.dataTransfer.setData('text/cms-field-type', ft.type)}
                       onClick={() => add(ft.type)}
-                      className="cursor-grab rounded border border-[#1a1a2e]/10 bg-white px-2.5 py-1.5 text-left text-sm hover:border-[#b87333] active:cursor-grabbing"
+                      className="cursor-grab rounded border border-admin-ink/10 bg-white px-2.5 py-1.5 text-left text-sm hover:border-admin-accent active:cursor-grabbing"
                     >
                       {ft.label}
                     </button>
@@ -692,7 +692,7 @@ export default function FormBuilder({ formId }: { formId: number }) {
           </aside>
         )}
 
-        <main className="min-w-0 flex-1 bg-[#f1efeb] p-4">
+        <main className="min-w-0 flex-1 bg-admin-soft p-4">
           <div className="h-full overflow-hidden rounded bg-white shadow-[0_0_0_1px_rgba(26,26,46,0.08)]">
             <Preview
               form={form}
@@ -708,12 +708,12 @@ export default function FormBuilder({ formId }: { formId: number }) {
           </div>
         </main>
 
-        <aside className="w-[340px] shrink-0 overflow-y-auto border-l border-[#1a1a2e]/10 bg-white p-4">
+        <aside className="w-[340px] shrink-0 overflow-y-auto border-l border-admin-ink/10 bg-white p-4">
           {tab === 'build' &&
             (field ? (
               <>
                 <div className="mb-3 flex items-center justify-between">
-                  <span className="text-xs font-semibold tracking-wider text-[#64748b] uppercase">{FIELD_TYPES.find((ft) => ft.type === field.type)?.label ?? field.type}</span>
+                  <span className="text-xs font-semibold tracking-wider text-admin-muted uppercase">{FIELD_TYPES.find((ft) => ft.type === field.type)?.label ?? field.type}</span>
                   <span className="text-[11px] text-[#94a3b8]">{field.id}</span>
                 </div>
                 <div className="mb-4 flex flex-wrap gap-1">
@@ -733,7 +733,7 @@ export default function FormBuilder({ formId }: { formId: number }) {
                 <FieldSettings key={field.id} form={form} field={field} onChange={updateField} />
               </>
             ) : (
-              <p className="text-sm text-[#64748b]">Select a field in the form to edit it, or add one from the left.</p>
+              <p className="text-sm text-admin-muted">Select a field in the form to edit it, or add one from the left.</p>
             ))}
 
           {tab === 'settings' && (
@@ -774,9 +774,9 @@ export default function FormBuilder({ formId }: { formId: number }) {
 
           {tab === 'notifications' && (
             <>
-              <p className="mb-3 text-xs text-[#64748b]">Emails sent when the form is submitted.</p>
+              <p className="mb-3 text-xs text-admin-muted">Emails sent when the form is submitted.</p>
               {row.notifications.map((n, i) => (
-                <details key={n.id} open={row.notifications.length === 1} className="mb-3 rounded border border-[#1a1a2e]/10 p-3">
+                <details key={n.id} open={row.notifications.length === 1} className="mb-3 rounded border border-admin-ink/10 p-3">
                   <summary className="cursor-pointer text-sm font-medium">
                     {n.name || 'Notification'}
                     {n.active === false && <span className="ml-2 text-xs font-normal text-[#94a3b8]">(off)</span>}
@@ -795,7 +795,7 @@ export default function FormBuilder({ formId }: { formId: number }) {
                         <button type="button" className={btn} onClick={() => { if (!n.design) setNotification(i, { design: emailFromMessage(n.message) }); setEmailFor(n.id); }}>
                           Edit email
                         </button>
-                        <span className="text-xs text-[#64748b]">
+                        <span className="text-xs text-admin-muted">
                           {n.design ? `Built in the email builder${n.text ? ', with its own plain text' : ''}.` : 'Uses its message from before the email builder; Edit email opens it there.'}
                         </span>
                       </div>

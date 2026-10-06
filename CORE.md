@@ -447,6 +447,13 @@ they are made (`PUT /api/admin/a11y`; not an unsaved edit), and lapse when the t
 are offered only on those entry types. Pages whose template has no `post-content` are edited in layout
 mode: the template document itself.
 
+Admin colors (Settings > Admin, `settings.site.admin_theme`, `src/lib/admin-theme.ts`): accent, text,
+menu bar and background, previewed as they are picked. Admin styles use only the role tokens
+`--color-admin-*` (`src/styles/tailwind.css`; Tailwind colors like `text-admin-muted`), never hex
+values; `src/layouts/AdminTheme.astro` writes the saved colors and the shades made from them (darker
+accent, soft background, the bar's text) on every admin page, and Puck's blue scale is made from the
+accent (`src/styles/admin.css`). The admin uses the system font (`--font-admin`).
+
 Saving: **Save draft** keeps changes to a published page aside (table `entry_drafts`, editors only:
 published rows of `entries` are public) with the live page
 unchanged; unpublished pages save in place as drafts. **Publish** / **Publish changes** makes them live;

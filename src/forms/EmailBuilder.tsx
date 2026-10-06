@@ -4,7 +4,7 @@
 // as it would be sent for a stored submission or sample answers (/api/admin/forms/<id>/notification-preview).
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Puck, type Config, type Data } from '@puckeditor/core';
-import '@puckeditor/core/puck.css';
+import '@puckeditor/core/no-external.css'; // without its Inter webfont: the admin uses the system font
 import { EMAIL_DEFAULTS, defaultEmail, renderBlock, renderEmail, textVersion, type EmailContext, type EmailDoc, type EmailItem, type EmailRoot } from '../lib/forms/email';
 import { INPUT_TYPES } from '../lib/forms/logic';
 import type { FormDef, Notification } from '../lib/forms/types';
@@ -63,8 +63,8 @@ function ColorField({ label, value, onChange, fallback }: { label: string; value
     <div>
     <div className="mb-1.5 text-sm font-medium text-[#3b3b3b]">{label}</div>
     <div className="flex items-center gap-2">
-      <input type="color" value={value && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback} onChange={(e) => onChange(e.target.value)} className="h-8 w-10 cursor-pointer rounded border border-[#1a1a2e]/15" />
-      <input type="text" aria-label={label} value={value ?? ''} placeholder={fallback} onChange={(e) => onChange(e.target.value || undefined)} className="w-full rounded border border-[#1a1a2e]/15 px-2 py-1 text-sm" />
+      <input type="color" value={value && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback} onChange={(e) => onChange(e.target.value)} className="h-8 w-10 cursor-pointer rounded border border-admin-ink/15" />
+      <input type="text" aria-label={label} value={value ?? ''} placeholder={fallback} onChange={(e) => onChange(e.target.value || undefined)} className="w-full rounded border border-admin-ink/15 px-2 py-1 text-sm" />
     </div>
     </div>
   );
@@ -190,7 +190,7 @@ const EMAIL_VIEWPORTS = [
   { width: 390, height: 'auto' as const, label: 'Phone', icon: 'Smartphone' as const },
 ];
 
-const tabCls = (on: boolean) => `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${on ? 'border-[#b87333] text-[#1a1a2e]' : 'border-transparent text-[#64748b] hover:text-[#1a1a2e]'}`;
+const tabCls = (on: boolean) => `-mb-px border-b-2 px-4 py-2 text-sm font-medium ${on ? 'border-admin-accent text-admin-ink' : 'border-transparent text-admin-muted hover:text-admin-ink'}`;
 
 export default function EmailBuilder({ formId, form, notification, onChange, onClose }: { formId: number; form: FormDef; notification: Notification; onChange: (patch: Partial<Notification>) => void; onClose: () => void }) {
   const [tab, setTab] = useState<'visual' | 'text' | 'preview'>('visual');
@@ -201,7 +201,7 @@ export default function EmailBuilder({ formId, form, notification, onChange, onC
 
   return (
     <div className="fixed inset-0 z-[900] flex flex-col bg-white" role="dialog" aria-modal="true" aria-label={`Email: ${notification.name || 'Notification'}`}>
-      <div className="flex items-center justify-between gap-4 border-b border-[#1a1a2e]/10 px-4">
+      <div className="flex items-center justify-between gap-4 border-b border-admin-ink/10 px-4">
         <div className="flex items-end gap-1">
           <span className="mr-4 py-2 text-sm font-semibold">{notification.name || 'Notification'}: email</span>
           {(['visual', 'text', 'preview'] as const).map((t) => (
@@ -211,8 +211,8 @@ export default function EmailBuilder({ formId, form, notification, onChange, onC
           ))}
         </div>
         <div className="flex items-center gap-3 py-2">
-          <span className="text-xs text-[#64748b]">Changes are saved with the form.</span>
-          <button type="button" onClick={onClose} className="rounded-sm bg-[#1a1a2e] px-4 py-1.5 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">
+          <span className="text-xs text-admin-muted">Changes are saved with the form.</span>
+          <button type="button" onClick={onClose} className="rounded-sm bg-admin-ink px-4 py-1.5 text-xs font-semibold tracking-wider text-white uppercase hover:bg-admin-accent">
             Done
           </button>
         </div>
@@ -247,7 +247,7 @@ function PlainText({ form, design, value, onChange }: { form: FormDef; design: E
       </p>
       <div className="mb-2 flex flex-wrap items-center gap-3">
         <MergeTags form={form} onInsert={insert} />
-        <button type="button" className="rounded border border-[#1a1a2e]/15 bg-white px-2.5 py-1 text-xs hover:border-[#b87333]" onClick={() => (!value || confirm('Replace the plain text with one made from the visual design?')) && onChange(textFromDesign(design, form))}>
+        <button type="button" className="rounded border border-admin-ink/15 bg-white px-2.5 py-1 text-xs hover:border-admin-accent" onClick={() => (!value || confirm('Replace the plain text with one made from the visual design?')) && onChange(textFromDesign(design, form))}>
           Fill from the visual design
         </button>
         {value && (
@@ -256,7 +256,7 @@ function PlainText({ form, design, value, onChange }: { form: FormDef; design: E
           </button>
         )}
       </div>
-      <textarea ref={area} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Made from the visual design when empty." className="min-h-0 flex-1 rounded border border-[#1a1a2e]/15 p-3 font-mono text-sm outline-none focus:border-[#b87333]" />
+      <textarea ref={area} value={value} onChange={(e) => onChange(e.target.value)} placeholder="Made from the visual design when empty." className="min-h-0 flex-1 rounded border border-admin-ink/15 p-3 font-mono text-sm outline-none focus:border-admin-accent" />
     </div>
   );
 }
@@ -290,11 +290,11 @@ function Preview({ formId, form, notification }: { formId: number; form: FormDef
   const when = (s: string) => new Date(s).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   return (
     <div className="flex h-full min-h-0">
-      <div className="flex min-w-0 flex-1 flex-col bg-[#f1efeb]">
-        <div className="flex flex-wrap items-center gap-3 border-b border-[#1a1a2e]/10 bg-white px-4 py-2 text-sm">
+      <div className="flex min-w-0 flex-1 flex-col bg-admin-soft">
+        <div className="flex flex-wrap items-center gap-3 border-b border-admin-ink/10 bg-white px-4 py-2 text-sm">
           <label className="flex items-center gap-2">
-            <span className="text-xs text-[#64748b]">Answers from</span>
-            <select value={pick} onChange={(e) => setPick(e.target.value)} className="rounded border border-[#1a1a2e]/15 px-2 py-1 text-sm">
+            <span className="text-xs text-admin-muted">Answers from</span>
+            <select value={pick} onChange={(e) => setPick(e.target.value)} className="rounded border border-admin-ink/15 px-2 py-1 text-sm">
               <option value="">Sample answers</option>
               {(subs ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
@@ -304,10 +304,10 @@ function Preview({ formId, form, notification }: { formId: number; form: FormDef
               ))}
             </select>
           </label>
-          {subs && !subs.length && <span className="text-xs text-[#64748b]">No submissions yet.</span>}
+          {subs && !subs.length && <span className="text-xs text-admin-muted">No submissions yet.</span>}
           <span className="ml-auto flex gap-1 text-xs">
             {(['desktop', 'phone'] as const).map((w) => (
-              <button key={w} type="button" onClick={() => setWidth(w)} className={`rounded px-2 py-1 ${width === w ? 'bg-[#1a1a2e] text-white' : 'bg-[#f1f5f9]'}`}>
+              <button key={w} type="button" onClick={() => setWidth(w)} className={`rounded px-2 py-1 ${width === w ? 'bg-admin-ink text-white' : 'bg-[#f1f5f9]'}`}>
                 {w === 'desktop' ? 'Desktop' : 'Phone'}
               </button>
             ))}
@@ -316,16 +316,16 @@ function Preview({ formId, form, notification }: { formId: number; form: FormDef
         {error && <p className="p-4 text-sm text-[#b3261e]">{error}</p>}
         {out && (
           <>
-            <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 border-b border-[#1a1a2e]/10 bg-white px-4 py-3 text-sm">
-              <dt className="text-[#64748b]">To</dt>
+            <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-1 border-b border-admin-ink/10 bg-white px-4 py-3 text-sm">
+              <dt className="text-admin-muted">To</dt>
               <dd>{out.to.join(', ') || <span className="text-[#b3261e]">No valid address: this email wouldn't be sent.</span>}</dd>
               {out.replyTo && (
                 <>
-                  <dt className="text-[#64748b]">Reply-to</dt>
+                  <dt className="text-admin-muted">Reply-to</dt>
                   <dd>{out.replyTo}</dd>
                 </>
               )}
-              <dt className="text-[#64748b]">Subject</dt>
+              <dt className="text-admin-muted">Subject</dt>
               <dd className="font-medium">{out.subject}</dd>
             </dl>
             <div className="min-h-0 flex-1 overflow-auto p-4">
@@ -334,8 +334,8 @@ function Preview({ formId, form, notification }: { formId: number; form: FormDef
           </>
         )}
       </div>
-      <aside className="w-96 shrink-0 overflow-y-auto border-l border-[#1a1a2e]/10 p-4">
-        <h3 className="mb-2 text-xs font-semibold tracking-wider text-[#64748b] uppercase">Plain text</h3>
+      <aside className="w-96 shrink-0 overflow-y-auto border-l border-admin-ink/10 p-4">
+        <h3 className="mb-2 text-xs font-semibold tracking-wider text-admin-muted uppercase">Plain text</h3>
         <pre className="text-xs whitespace-pre-wrap">{out?.text ?? ''}</pre>
       </aside>
     </div>

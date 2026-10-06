@@ -86,7 +86,7 @@ function Repeater({ def: d, value, onChange }: { def: Extract<FieldDef, { type: 
   };
   return (
     <div className="mb-3">
-      <span className="mb-1 block text-xs font-medium text-[#64748b]">{d.label}</span>
+      <span className="mb-1 block text-xs font-medium text-admin-muted">{d.label}</span>
       {rows.map((row, i) => (
         <details
           key={i}
@@ -95,22 +95,22 @@ function Repeater({ def: d, value, onChange }: { def: Extract<FieldDef, { type: 
             const isOpen = (e.currentTarget as HTMLDetailsElement).open;
             setClosed((o) => (o.has(i) === !isOpen ? o : isOpen ? new Set([...o].filter((k) => k !== i)) : new Set(o).add(i)));
           }}
-          className="mb-1 rounded border border-[#1a1a2e]/10 bg-[#faf8f5]"
+          className="mb-1 rounded border border-admin-ink/10 bg-admin-bg"
         >
           <summary className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm">
             <span className="truncate">{(d.itemLabel && row[d.itemLabel]) || `${noun.charAt(0).toUpperCase()}${noun.slice(1)} ${i + 1}`}</span>
-            <span className="ml-auto flex gap-1 text-xs text-[#64748b]">
+            <span className="ml-auto flex gap-1 text-xs text-admin-muted">
               <button type="button" disabled={i === 0} onClick={(e) => { e.preventDefault(); move(i, i - 1); }}>Up</button>
               <button type="button" disabled={i === rows.length - 1} onClick={(e) => { e.preventDefault(); move(i, i + 1); }}>Down</button>
               <button type="button" className="text-[#c4592a]" onClick={(e) => { e.preventDefault(); remove(i); }}>Remove</button>
             </span>
           </summary>
-          <div className="border-t border-[#1a1a2e]/10 bg-white p-2">
+          <div className="border-t border-admin-ink/10 bg-white p-2">
             <FieldsForm defs={d.fields} value={row} onChange={(x) => onChange(rows.map((r, j) => (j === i ? x : r)))} />
           </div>
         </details>
       ))}
-      <button type="button" className="mt-1 rounded border border-dashed border-[#1a1a2e]/25 px-3 py-1 text-xs text-[#64748b] hover:border-[#b87333] hover:text-[#b87333]" onClick={add}>
+      <button type="button" className="mt-1 rounded border border-dashed border-admin-ink/25 px-3 py-1 text-xs text-admin-muted hover:border-admin-accent hover:text-admin-accent" onClick={add}>
         Add {noun}
       </button>
     </div>
@@ -165,17 +165,17 @@ function EntryField({ title, entryType, create, value, onChange }: { title: stri
     pick({ ...row, status: 'publish', fields });
     setDraft({});
   };
-  const link = 'text-xs text-[#64748b] hover:text-[#b87333]';
+  const link = 'text-xs text-admin-muted hover:text-admin-accent';
 
   return (
     <div className="mb-3">
-      <span className="mb-1 block text-xs font-medium text-[#64748b]">{title}</span>
+      <span className="mb-1 block text-xs font-medium text-admin-muted">{title}</span>
       {mode === 'view' && (
         <>
           {current ? (
-            <div className="rounded border border-[#1a1a2e]/10 bg-[#faf8f5] px-3 py-2 text-sm">
-              <div className="font-medium">{current.title}{current.status !== 'publish' && <span className="ml-2 text-xs font-normal text-[#64748b]">({current.status})</span>}</div>
-              {summary(current) && <div className="text-xs text-[#64748b]">{summary(current)}</div>}
+            <div className="rounded border border-admin-ink/10 bg-admin-bg px-3 py-2 text-sm">
+              <div className="font-medium">{current.title}{current.status !== 'publish' && <span className="ml-2 text-xs font-normal text-admin-muted">({current.status})</span>}</div>
+              {summary(current) && <div className="text-xs text-admin-muted">{summary(current)}</div>}
               <div className="mt-1.5 flex gap-3">
                 <button type="button" className={link} onClick={() => setMode('search')}>Change</button>
                 <a className={link} href={`/admin/edit/${current.id}/`} target="_blank" rel="noopener">Edit</a>
@@ -184,25 +184,25 @@ function EntryField({ title, entryType, create, value, onChange }: { title: stri
             </div>
           ) : (
             <div className="flex gap-2">
-              <button type="button" className="flex-1 rounded border border-dashed border-[#1a1a2e]/25 px-3 py-1.5 text-xs text-[#64748b] hover:border-[#b87333] hover:text-[#b87333]" onClick={() => setMode('search')}>Choose {noun}</button>
-              {create && <button type="button" className="rounded border border-dashed border-[#1a1a2e]/25 px-3 py-1.5 text-xs text-[#64748b] hover:border-[#b87333] hover:text-[#b87333]" onClick={() => setMode('create')}>New {noun}</button>}
+              <button type="button" className="flex-1 rounded border border-dashed border-admin-ink/25 px-3 py-1.5 text-xs text-admin-muted hover:border-admin-accent hover:text-admin-accent" onClick={() => setMode('search')}>Choose {noun}</button>
+              {create && <button type="button" className="rounded border border-dashed border-admin-ink/25 px-3 py-1.5 text-xs text-admin-muted hover:border-admin-accent hover:text-admin-accent" onClick={() => setMode('create')}>New {noun}</button>}
             </div>
           )}
         </>
       )}
       {mode === 'search' && (
-        <div className="rounded border border-[#1a1a2e]/10 bg-white p-2">
+        <div className="rounded border border-admin-ink/10 bg-white p-2">
           <input autoFocus className={inputClass} placeholder={`Search ${noun}s`} value={q} onChange={(e) => setQ(e.target.value)} />
           <ul className="mt-1 max-h-60 overflow-auto text-sm">
             {results.map((r) => (
               <li key={r.id}>
-                <button type="button" className={`block w-full rounded px-2 py-1 text-left hover:bg-[#f5f3f0]${r.id === id ? ' bg-[#f5f3f0]' : ''}`} onClick={() => pick(r)}>
+                <button type="button" className={`block w-full rounded px-2 py-1 text-left hover:bg-admin-soft${r.id === id ? ' bg-admin-soft' : ''}`} onClick={() => pick(r)}>
                   <span className="block">{r.title}</span>
-                  {summary(r) && <span className="block text-xs text-[#64748b]">{summary(r)}</span>}
+                  {summary(r) && <span className="block text-xs text-admin-muted">{summary(r)}</span>}
                 </button>
               </li>
             ))}
-            {!results.length && <li className="px-2 py-1 text-xs text-[#64748b]">No {noun}s found.</li>}
+            {!results.length && <li className="px-2 py-1 text-xs text-admin-muted">No {noun}s found.</li>}
           </ul>
           <div className="mt-2 flex gap-3">
             {create && <button type="button" className={link} onClick={() => { setDraft({ title: q }); setMode('create'); }}>New {noun}{q ? ` "${q}"` : ''}</button>}
@@ -211,12 +211,12 @@ function EntryField({ title, entryType, create, value, onChange }: { title: stri
         </div>
       )}
       {mode === 'create' && create && (
-        <div className="rounded border border-[#1a1a2e]/10 bg-white p-2">
+        <div className="rounded border border-admin-ink/10 bg-white p-2">
           <Text title="Name" value={draft.title} onChange={(x) => setDraft({ ...draft, title: x })} />
           <FieldsForm defs={create} value={draft} onChange={(x) => setDraft({ ...draft, ...x })} />
           {error && <p className="mb-2 text-xs text-[#c4592a]">{error}</p>}
           <div className="flex gap-2">
-            <button type="button" disabled={busy} className="rounded-sm bg-[#1a1a2e] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#b87333] disabled:opacity-50" onClick={add}>{busy ? 'Adding...' : `Add ${noun}`}</button>
+            <button type="button" disabled={busy} className="rounded-sm bg-admin-ink px-3 py-1.5 text-xs font-semibold text-white hover:bg-admin-accent disabled:opacity-50" onClick={add}>{busy ? 'Adding...' : `Add ${noun}`}</button>
             <button type="button" className={link} onClick={() => { setMode('view'); setError(''); }}>Cancel</button>
           </div>
         </div>
@@ -243,7 +243,7 @@ export function EntriesField({ title, types, value, onChange }: { title: string;
     <FieldGroup title={title}>
       <ul className="mb-1 space-y-1">
         {ids.map((id, i) => (
-          <li key={id} className="flex items-center gap-2 rounded bg-[#f5f3f0] px-2 py-1 text-sm">
+          <li key={id} className="flex items-center gap-2 rounded bg-admin-soft px-2 py-1 text-sm">
             <span className="truncate">{titles[id] ?? `#${id}`}</span>
             <button type="button" className="ml-auto text-xs text-[#c4592a]" onClick={() => onChange(ids.filter((_, j) => j !== i))}>Remove</button>
           </li>
@@ -251,11 +251,11 @@ export function EntriesField({ title, types, value, onChange }: { title: string;
       </ul>
       <input className={inputClass} placeholder="Search to add" value={q} onChange={(e) => setQ(e.target.value)} />
       {results.length > 0 && (
-        <ul className="mt-1 rounded border border-[#1a1a2e]/10 bg-white text-sm">
+        <ul className="mt-1 rounded border border-admin-ink/10 bg-white text-sm">
           {results.filter((r) => !ids.includes(r.id)).map((r) => (
             <li key={r.id}>
-              <button type="button" className="block w-full px-2 py-1 text-left hover:bg-[#f5f3f0]" onClick={() => { onChange([...ids, r.id]); setQ(''); }}>
-                {r.title} <span className="text-xs text-[#64748b]">{r.type}</span>
+              <button type="button" className="block w-full px-2 py-1 text-left hover:bg-admin-soft" onClick={() => { onChange([...ids, r.id]); setQ(''); }}>
+                {r.title} <span className="text-xs text-admin-muted">{r.type}</span>
               </button>
             </li>
           ))}
@@ -311,11 +311,11 @@ function ExcerptWriter({ type, title, pageItems, onWrite }: { type: string; titl
   };
   return (
     <div className="-mt-2 mb-3">
-      <button type="button" onClick={write} disabled={status === 'Writing…'} className="rounded-sm border border-[#1a1a2e]/20 px-3 py-1.5 text-xs font-semibold hover:border-[#1a1a2e]/50 disabled:opacity-50">
+      <button type="button" onClick={write} disabled={status === 'Writing…'} className="rounded-sm border border-admin-ink/20 px-3 py-1.5 text-xs font-semibold hover:border-admin-ink/50 disabled:opacity-50">
         Write with Claude
       </button>
       {status && (
-        <p className="mt-1 text-xs text-[#64748b]" role="status">
+        <p className="mt-1 text-xs text-admin-muted" role="status">
           {status}
         </p>
       )}
@@ -345,7 +345,7 @@ export function EntryForm({ type, value, onChange, templates, pageItems }: { typ
         <>
           <Select title="Template" value={value.template ?? ''} options={templates.map((t) => [t.slug, templateLabel(t)])} onChange={(x) => set({ template: x ?? null })} />
           {value.template && templates.some((t) => t.slug === value.template && !t.content) && <p className="-mt-2 mb-3 text-xs text-[#b3261e]">{NO_CONTENT_WARNING}</p>}
-          {!value.template && <p className="-mt-2 mb-3 text-xs text-[#64748b]">Default: the template set for this type under Settings &gt; Types.</p>}
+          {!value.template && <p className="-mt-2 mb-3 text-xs text-admin-muted">Default: the template set for this type under Settings &gt; Types.</p>}
         </>
       )}
       <Row title="Excerpt">
@@ -377,7 +377,7 @@ export function EntryForm({ type, value, onChange, templates, pageItems }: { typ
               set({ fields, event_start: value.event_start ? `${toLocal(value.event_start, eventTz)}:00` : null, event_end: value.event_end ? `${toLocal(value.event_end, eventTz)}:00` : null });
             }}
           />
-          <p className="-mt-2 mb-3 text-xs text-[#64748b]">Default: the site's timezone ({SITE_TZ.replace(/_/g, ' ')}). Times are in the event's timezone; visitors see its short name when it differs from the site's.</p>
+          <p className="-mt-2 mb-3 text-xs text-admin-muted">Default: the site's timezone ({SITE_TZ.replace(/_/g, ' ')}). Times are in the event's timezone; visitors see its short name when it differs from the site's.</p>
           <Toggle title="All-day event" value={value.event_all_day} onChange={(x) => set({ event_all_day: x })} />
           <RecurrenceForm
             start={toLocal(value.event_start, eventTz).slice(0, 10) || (value.event_start ?? '').slice(0, 10)}
@@ -392,14 +392,14 @@ export function EntryForm({ type, value, onChange, templates, pageItems }: { typ
         </>
       )}
       {defs.length > 0 && (
-        <details open className="mt-4 border-t border-[#1a1a2e]/10 pt-3">
-          <summary className="mb-2 cursor-pointer text-xs font-semibold tracking-wider text-[#64748b] uppercase">Details</summary>
+        <details open className="mt-4 border-t border-admin-ink/10 pt-3">
+          <summary className="mb-2 cursor-pointer text-xs font-semibold tracking-wider text-admin-muted uppercase">Details</summary>
           <FieldsForm defs={defs} value={value.fields} onChange={(fields) => set({ fields })} />
         </details>
       )}
       {!PAGELESS_TYPES.has(type) && (
-        <details open className="mt-4 border-t border-[#1a1a2e]/10 pt-3">
-          <summary className="mb-2 cursor-pointer text-xs font-semibold tracking-wider text-[#64748b] uppercase">SEO</summary>
+        <details open className="mt-4 border-t border-admin-ink/10 pt-3">
+          <summary className="mb-2 cursor-pointer text-xs font-semibold tracking-wider text-admin-muted uppercase">SEO</summary>
           <SeoForm type={type} title={value.title} excerpt={value.excerpt} fields={value.fields} path={permalink({ type, slug: value.slug })} pageItems={pageItems} onChange={(fields) => set({ fields })} />
         </details>
       )}
@@ -439,7 +439,7 @@ function RecurrenceForm({ start, value, onChange }: { start: string; value: Recu
   const preview = r && start && first ? occurrenceDates(start, r, `${Number(start.slice(0, 4)) + 3}${start.slice(4)}`) : [];
   const fmt = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   return (
-    <div className="mb-3 rounded border border-[#1a1a2e]/10 p-2">
+    <div className="mb-3 rounded border border-admin-ink/10 p-2">
       <Row title="Repeats">
         <select className={inputClass} value={r?.freq ?? ''} onChange={(e) => onChange(e.target.value ? { ...(r ?? {}), freq: e.target.value as Recurrence['freq'] } : null)}>
           <option value="">Does not repeat</option>
@@ -463,7 +463,7 @@ function RecurrenceForm({ start, value, onChange }: { start: string; value: Recu
                   <button
                     key={d}
                     type="button"
-                    className={`rounded border px-2 py-1 text-xs ${on ? 'border-[#b87333] bg-[#b87333] text-white' : 'border-[#1a1a2e]/20'}`}
+                    className={`rounded border px-2 py-1 text-xs ${on ? 'border-admin-accent bg-admin-accent text-white' : 'border-admin-ink/20'}`}
                     onClick={() => set({ byweekday: on ? days.filter((x) => x !== i) : [...days, i].sort() })}
                   >
                     {d}
@@ -509,7 +509,7 @@ function RecurrenceForm({ start, value, onChange }: { start: string; value: Recu
           <DateList title="Skip dates" value={r.exclude} onChange={(exclude) => set({ exclude })} />
           <DateList title="Extra dates" value={r.include} onChange={(include) => set({ include })} />
           {preview.length > 0 && (
-            <div className="text-xs text-[#64748b]">
+            <div className="text-xs text-admin-muted">
               {preview.length} occurrence{preview.length === 1 ? '' : 's'}
               {!r.until && !r.count ? ' in the next three years' : ''}. First: {preview.slice(0, 4).map(fmt).join('; ')}
               {preview.length > 4 ? '; ...' : ''}
@@ -557,11 +557,11 @@ export function EntryTermsField({ taxonomy, value, onChange }: { taxonomy: strin
   const chosen = terms.filter((t) => value.includes(t.id));
   return (
     <fieldset className="mb-3">
-      <legend className="mb-1 text-xs font-medium text-[#64748b]">{label}</legend>
-      {!terms.length && <p className="text-xs text-[#64748b]">None yet: add them under Content &gt; Taxonomies.</p>}
-      {chosen.length > 0 && <p className="mb-1 text-xs text-[#1a1a2e]">{chosen.map((t) => t.name).join(', ')}</p>}
+      <legend className="mb-1 text-xs font-medium text-admin-muted">{label}</legend>
+      {!terms.length && <p className="text-xs text-admin-muted">None yet: add them under Content &gt; Taxonomies.</p>}
+      {chosen.length > 0 && <p className="mb-1 text-xs text-admin-ink">{chosen.map((t) => t.name).join(', ')}</p>}
       {terms.length > 12 && <input type="search" className={`${inputClass} mb-1`} placeholder={`Find ${label.toLowerCase()}`} aria-label={`Find ${label.toLowerCase()}`} value={q} onChange={(e) => setQ(e.target.value)} />}
-      <div className={terms.length > 12 ? 'max-h-48 overflow-y-auto rounded border border-[#1a1a2e]/10 p-1' : ''}>
+      <div className={terms.length > 12 ? 'max-h-48 overflow-y-auto rounded border border-admin-ink/10 p-1' : ''}>
         {shown.map((t) => (
           <label key={t.id} className="flex items-center gap-2 py-0.5 text-sm" style={{ paddingLeft: words ? 0 : `${t.depth * 1}rem` }}>
             <input type="checkbox" checked={value.includes(t.id)} onChange={(e) => onChange(e.target.checked ? [...value, t.id] : value.filter((id) => id !== t.id))} />
@@ -611,11 +611,11 @@ export function TagsField({ value, onChange }: { value: string[]; onChange: (v: 
   };
   return (
     <div className="relative mb-3">
-      <label htmlFor={`${id}-q`} className="mb-1 block text-xs font-medium text-[#64748b]">
+      <label htmlFor={`${id}-q`} className="mb-1 block text-xs font-medium text-admin-muted">
         Tags
       </label>
       <div
-        className="flex min-h-[38px] w-full flex-wrap items-center gap-1 rounded border border-[#1a1a2e]/15 bg-white px-1.5 py-1 focus-within:border-[#b87333]"
+        className="flex min-h-[38px] w-full flex-wrap items-center gap-1 rounded border border-admin-ink/15 bg-white px-1.5 py-1 focus-within:border-admin-accent"
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) {
             e.preventDefault();
@@ -624,7 +624,7 @@ export function TagsField({ value, onChange }: { value: string[]; onChange: (v: 
         }}
       >
         {value.map((t) => (
-          <span key={t} className="inline-flex items-center gap-0.5 rounded-full bg-[#f5f3f0] py-0.5 pr-0.5 pl-2.5 text-xs">
+          <span key={t} className="inline-flex items-center gap-0.5 rounded-full bg-admin-soft py-0.5 pr-0.5 pl-2.5 text-xs">
             {t}
             <button type="button" aria-label={`Remove ${t}`} className="rounded-full px-1.5 leading-none text-[#606f85] hover:text-[#c4592a]" onClick={() => toggle(t)}>
               ×
@@ -653,7 +653,7 @@ export function TagsField({ value, onChange }: { value: string[]; onChange: (v: 
         />
       </div>
       {open && options.length > 0 && (
-        <ul id={`${id}-list`} role="listbox" aria-multiselectable="true" aria-label="Tags" className="absolute right-0 left-0 z-20 m-0 mt-1 max-h-56 list-none overflow-auto rounded border border-[#1a1a2e]/10 bg-white p-1 text-sm shadow-lg">
+        <ul id={`${id}-list`} role="listbox" aria-multiselectable="true" aria-label="Tags" className="absolute right-0 left-0 z-20 m-0 mt-1 max-h-56 list-none overflow-auto rounded border border-admin-ink/10 bg-white p-1 text-sm shadow-lg">
           {options.map((o, i) => {
             const on = !o.create && has(o.name);
             return (
@@ -662,13 +662,13 @@ export function TagsField({ value, onChange }: { value: string[]; onChange: (v: 
                 id={`${id}-o${i}`}
                 role="option"
                 aria-selected={on}
-                className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 ${i === active ? 'bg-[#f5f3f0]' : ''}`}
+                className={`flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 ${i === active ? 'bg-admin-soft' : ''}`}
                 onMouseEnter={() => setActive(i)}
                 // Keep focus in the search so the list stays open for the next pick.
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => toggle(o.name)}
               >
-                <span aria-hidden="true" className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${on ? 'border-[#1a1a2e] bg-[#1a1a2e] text-white' : 'border-[#1a1a2e]/25'}`}>
+                <span aria-hidden="true" className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${on ? 'border-admin-ink bg-admin-ink text-white' : 'border-admin-ink/25'}`}>
                   {on ? '✓' : o.create ? '+' : ''}
                 </span>
                 <span className={o.create ? 'text-[#9c612b]' : ''}>{o.label}</span>

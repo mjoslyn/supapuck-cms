@@ -21,6 +21,18 @@ Admin-only pages are listed in `ADMIN_ONLY` (`src/middleware.ts`); settings writ
 row-level security (`is_admin()`). Admins manage users at `/admin/users/`: roles and invitations.
 Editors set their password at `/admin/set-password/`, where invitation and reset links land.
 
+## Admin colors
+
+**Settings > Admin** sets the admin's colors for everyone who signs in: accent, text, menu bar and
+background (`settings.site.admin_theme`, `src/lib/admin-theme.ts`). They change on the screen as they
+are picked; Save keeps them. The admin's styles use only role tokens (`--color-admin-*` in
+`src/styles/tailwind.css`, as Tailwind colors such as `text-admin-muted` and `bg-admin-accent`), and
+every admin page writes the saved colors over them (`AdminTheme.astro`), with the shades made from
+them: a darker accent, a soft background, and the menu bar's text, dark on a light bar. Puck's own
+blue scale is made from the accent (`src/styles/admin.css`). The accent and text carry white text, so
+the screen warns when white on them would be hard to read. The admin uses the system font. Admin
+colors are part of the site settings, so a settings sync copies them.
+
 ## The page editor
 
 `src/puck/Editor.tsx` renders blocks through the same string renderer as the site, inside Puck

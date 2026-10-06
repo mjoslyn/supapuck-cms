@@ -5,7 +5,7 @@ import { Puck, blocksPlugin, createUsePuck, outlinePlugin, useGetPuck, type Data
 import Composer, { type LivePage, type Selection } from '../admin/Composer';
 import { isComposed } from '../lib/compose/outline';
 import { findBlock, replaceBlock } from '../lib/puck/tree';
-import '@puckeditor/core/puck.css';
+import '@puckeditor/core/no-external.css'; // without its Inter webfont: the admin uses the system font
 import { SITE_TZ, taxonomiesOf } from '../lib/site';
 import { browserClient } from '../lib/supabase-browser';
 import { Loader } from '../lib/data';
@@ -434,7 +434,7 @@ export default function Editor({ entryId, template }: EditorProps) {
   };
 
   if (error) return <p className="p-8 text-[#c4592a]">{error}</p>;
-  if (!initial || !env) return <p className="p-8 text-[#64748b]">Loading editor…</p>;
+  if (!initial || !env) return <p className="p-8 text-admin-muted">Loading editor…</p>;
 
   const viewUrl = entry && settingsRef.current.site?.front_page_id !== entry.id ? permalink(entry) : '/';
   const titleText = entry ? state?.title || '(untitled)' : `${template?.kind === 'part' ? 'Template part' : template?.kind === 'pattern' ? 'Pattern' : 'Template'}: ${template?.slug}`;
@@ -442,12 +442,12 @@ export default function Editor({ entryId, template }: EditorProps) {
     <div className="flex h-screen">
     <div className="flex min-w-0 flex-1 flex-col">
     {/* Page title and address, above Puck (outside its header, so its toolbar keeps its own layout). */}
-    <div className="flex shrink-0 items-baseline gap-3 border-b border-[#1a1a2e]/10 bg-white px-4 py-2">
-      <a href={entry ? `/admin/?type=${entry.type}` : '/admin/templates/'} className="text-xs text-[#64748b] hover:text-[#b87333]" title="Back to the list">
+    <div className="flex shrink-0 items-baseline gap-3 border-b border-admin-ink/10 bg-white px-4 py-2">
+      <a href={entry ? `/admin/?type=${entry.type}` : '/admin/templates/'} className="text-xs text-admin-muted hover:text-admin-accent" title="Back to the list">
         ←
       </a>
-      <h1 className="truncate font-[Fraunces,Georgia,serif] text-lg">{titleText}</h1>
-      {entry && <span className="truncate font-mono text-xs text-[#64748b]">{viewUrl}</span>}
+      <h1 className="truncate text-lg">{titleText}</h1>
+      {entry && <span className="truncate font-mono text-xs text-admin-muted">{viewUrl}</span>}
     </div>
     <div className="cms-editor-frame relative min-h-0 flex-1">
     <EnvContext.Provider value={env}>
@@ -468,13 +468,13 @@ export default function Editor({ entryId, template }: EditorProps) {
           iframe: CanvasFrame,
           headerActions: ({ children }) => (
             <>
-              {mode === 'layout' && entry && <span className="max-w-xs text-xs text-[#64748b]">Editing this page's template ({templateSlug}); changes apply to every page using it.</span>}
+              {mode === 'layout' && entry && <span className="max-w-xs text-xs text-admin-muted">Editing this page's template ({templateSlug}); changes apply to every page using it.</span>}
               <PuckBridge into={puckRef} onSelect={setSelection} />
               {entry && mode === 'content' && (
-                <span className="flex items-center gap-2 whitespace-nowrap text-xs text-[#64748b]">
-                  <span className={`rounded-full px-2 py-0.5 ${liveStatus === 'publish' ? 'bg-[#6db56d]/15 text-[#3f7a3f]' : 'bg-[#64748b]/10'}`}>{liveStatus === 'publish' ? 'Published' : 'Draft'}</span>
+                <span className="flex items-center gap-2 whitespace-nowrap text-xs text-admin-muted">
+                  <span className={`rounded-full px-2 py-0.5 ${liveStatus === 'publish' ? 'bg-[#6db56d]/15 text-[#3f7a3f]' : 'bg-admin-muted/10'}`}>{liveStatus === 'publish' ? 'Published' : 'Draft'}</span>
                   {liveStatus === 'publish' && pending && !dirty && <span title={`Saved ${new Date(pending).toLocaleString()}`}>Unpublished changes</span>}
-                  {dirty && <span className="text-[#b87333]">{status.startsWith('Restored') ? status : 'Unsaved changes'}</span>}
+                  {dirty && <span className="text-admin-accent">{status.startsWith('Restored') ? status : 'Unsaved changes'}</span>}
                   {!dirty && status && <span>{status}</span>}
                   {liveStatus === 'publish' && pending && (
                     <button type="button" className="underline hover:text-[#c4592a]" onClick={() => confirm('Discard the unpublished changes and go back to the live page?') && save('discard')}>
@@ -488,37 +488,37 @@ export default function Editor({ entryId, template }: EditorProps) {
                   )}
                 </span>
               )}
-              {!(entry && mode === 'content') && status && <span className="text-xs text-[#64748b]">{status}</span>}
+              {!(entry && mode === 'content') && status && <span className="text-xs text-admin-muted">{status}</span>}
               {entry && mode === 'content' && (
-                <button type="button" onClick={() => setComposeOpen((v) => !v)} aria-pressed={composeOpen} className={`whitespace-nowrap rounded border px-3 py-1.5 text-sm ${composeOpen ? 'border-[#b87333] text-[#b87333]' : 'border-[#1a1a2e]/15 hover:border-[#b87333] hover:text-[#b87333]'}`}>
+                <button type="button" onClick={() => setComposeOpen((v) => !v)} aria-pressed={composeOpen} className={`whitespace-nowrap rounded border px-3 py-1.5 text-sm ${composeOpen ? 'border-admin-accent text-admin-accent' : 'border-admin-ink/15 hover:border-admin-accent hover:text-admin-accent'}`}>
                   Compose
                 </button>
               )}
               {entry && (
-                <button type="button" onClick={preview} className="whitespace-nowrap text-sm text-[#64748b] hover:text-[#b87333]" title="See the page as it will look, including unsaved changes">
+                <button type="button" onClick={preview} className="whitespace-nowrap text-sm text-admin-muted hover:text-admin-accent" title="See the page as it will look, including unsaved changes">
                   Preview
                 </button>
               )}
-              {entry && liveStatus === 'publish' && <a href={viewUrl} target="_blank" className="whitespace-nowrap text-sm text-[#64748b] hover:text-[#b87333]">View live</a>}
+              {entry && liveStatus === 'publish' && <a href={viewUrl} target="_blank" className="whitespace-nowrap text-sm text-admin-muted hover:text-admin-accent">View live</a>}
               {entry && (
                 <form method="post" action="/api/admin/entries" onSubmit={(e) => dirty && !window.confirm('The copy is made from the saved page; your unsaved changes won\'t be in it. Duplicate anyway?') && e.preventDefault()}>
                   <input type="hidden" name="duplicate" value={entry.id} />
-                  <button className="whitespace-nowrap text-sm text-[#64748b] hover:text-[#b87333]" title="Make a draft copy of this page and open it">
+                  <button className="whitespace-nowrap text-sm text-admin-muted hover:text-admin-accent" title="Make a draft copy of this page and open it">
                     Duplicate
                   </button>
                 </form>
               )}
               {entry && mode === 'content' ? (
                 <>
-                  <button type="button" disabled={saving} onClick={() => save('draft')} className="whitespace-nowrap rounded border border-[#1a1a2e]/20 px-3 py-1.5 text-sm hover:border-[#b87333] hover:text-[#b87333] disabled:opacity-50" title={liveStatus === 'publish' ? 'Keep your changes without changing the live page' : 'Save without publishing'}>
+                  <button type="button" disabled={saving} onClick={() => save('draft')} className="whitespace-nowrap rounded border border-admin-ink/20 px-3 py-1.5 text-sm hover:border-admin-accent hover:text-admin-accent disabled:opacity-50" title={liveStatus === 'publish' ? 'Keep your changes without changing the live page' : 'Save without publishing'}>
                     Save draft
                   </button>
-                  <button type="button" disabled={saving} onClick={() => save('publish')} className="whitespace-nowrap rounded bg-[#1a1a2e] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#b87333] disabled:opacity-50">
+                  <button type="button" disabled={saving} onClick={() => save('publish')} className="whitespace-nowrap rounded bg-admin-ink px-4 py-1.5 text-sm font-medium text-white hover:bg-admin-accent disabled:opacity-50">
                     {liveStatus === 'publish' ? 'Publish changes' : 'Publish'}
                   </button>
                 </>
               ) : (
-                <button type="button" disabled={saving} onClick={() => save('save')} className="whitespace-nowrap rounded bg-[#1a1a2e] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#b87333] disabled:opacity-50" title="Templates have no drafts: changes apply to every page using them">
+                <button type="button" disabled={saving} onClick={() => save('save')} className="whitespace-nowrap rounded bg-admin-ink px-4 py-1.5 text-sm font-medium text-white hover:bg-admin-accent disabled:opacity-50" title="Templates have no drafts: changes apply to every page using them">
                   Save &amp; apply
                 </button>
               )}
@@ -533,7 +533,7 @@ export default function Editor({ entryId, template }: EditorProps) {
     </div>
     </div>
     {entry && mode === 'content' && composeOpen && (
-      <aside className="h-screen w-[400px] shrink-0 border-l border-[#1a1a2e]/10" aria-label="Compose with Claude">
+      <aside className="h-screen w-[400px] shrink-0 border-l border-admin-ink/10" aria-label="Compose with Claude">
         <Composer entryId={entry.id} live={live} selection={selection} pinned={pinned} onPin={pin} onClose={() => setComposeOpen(false)} />
       </aside>
     )}
@@ -619,19 +619,19 @@ function RevisionsPanel() {
         }
       });
   }, [api?.entryId, api?.version]);
-  if (!api?.entryId) return <p className="p-4 text-sm text-[#64748b]">Templates have no revisions.</p>;
-  if (!rows) return <p className="p-4 text-sm text-[#64748b]">Loading…</p>;
-  if (!rows.length) return <p className="p-4 text-sm text-[#64748b]">No saved versions yet. Each Save draft or Publish adds one.</p>;
+  if (!api?.entryId) return <p className="p-4 text-sm text-admin-muted">Templates have no revisions.</p>;
+  if (!rows) return <p className="p-4 text-sm text-admin-muted">Loading…</p>;
+  if (!rows.length) return <p className="p-4 text-sm text-admin-muted">No saved versions yet. Each Save draft or Publish adds one.</p>;
   const when = (s: string) => new Date(s).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: SITE_TZ });
   return (
-    <ol className="divide-y divide-[#1a1a2e]/10 text-sm">
+    <ol className="divide-y divide-admin-ink/10 text-sm">
       {rows.map((r, i) => (
         <li key={r.id} className="px-3 py-2.5">
           <div className="flex items-baseline gap-2">
             <span className="font-medium">{when(r.created_at)}</span>
-            {i === 0 && <span className="text-[11px] text-[#64748b]">latest</span>}
+            {i === 0 && <span className="text-[11px] text-admin-muted">latest</span>}
           </div>
-          <div className="text-xs text-[#64748b]">
+          <div className="text-xs text-admin-muted">
             {ACTIONS[r.action ?? ''] ?? 'Saved'}
             {r.author_id && names[r.author_id] ? ` by ${names[r.author_id]}` : ''}
             {r.title ? ` · ${r.title}` : ''}
@@ -646,11 +646,11 @@ function RevisionsPanel() {
             </div>
           )}
           <div className="mt-1 flex gap-3 text-xs">
-            <a href={`/admin/preview/${api.entryId}/?revision=${r.id}`} target="_blank" rel="noopener" className="text-[#64748b] underline hover:text-[#b87333]">
+            <a href={`/admin/preview/${api.entryId}/?revision=${r.id}`} target="_blank" rel="noopener" className="text-admin-muted underline hover:text-admin-accent">
               Preview
             </a>
             {api.contentMode && r.content && (
-              <button type="button" className="text-[#64748b] underline hover:text-[#b87333]" onClick={() => api.restore(r)}>
+              <button type="button" className="text-admin-muted underline hover:text-admin-accent" onClick={() => api.restore(r)}>
                 Restore
               </button>
             )}

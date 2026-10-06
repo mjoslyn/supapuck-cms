@@ -5,6 +5,7 @@ import { socialLinks } from '../../../lib/social/links';
 import { makeSiteIcons } from '../../../lib/media/site-icon';
 import { MediaStore } from '../../../lib/media/process';
 import { serviceClient } from '../../../lib/supabase';
+import { adminThemeFrom, loadAdminTheme } from '../../../lib/admin-theme';
 
 /** Templates chosen per type ({ [type]: { single, archive } }): known types, template-like slugs. */
 function templatesFrom(v: unknown): Record<string, { single?: string; archive?: string }> | undefined {
@@ -76,7 +77,7 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   const timezone = body.site?.timezone || undefined;
   if (timezone && !isTimezone(timezone)) return new Response(`Unknown timezone: ${timezone}`, { status: 400 });
   const before = current?.value?.timezone || config.timezone;
-  const site = { ...(current?.value ?? {}), name: body.site?.name, description: body.site?.description, front_page_id: body.site?.front_page_id ?? null, timezone, search_types: searchTypesFrom(body.site?.search_types), templates: templatesFrom(body.site?.templates), taxonomy_templates: taxonomyTemplatesFrom(body.site?.taxonomy_templates), taxonomy_pages_off: taxonomyPagesOffFrom(body.site?.taxonomy_pages_off), taxonomy_meta: pageMetaFrom(body.site?.taxonomy_meta, config.taxonomies.map((t) => t.name)), listing_meta: pageMetaFrom(body.site?.listing_meta, Object.keys(ARCHIVE_PATHS)), listings_off: listingsOffFrom(body.site?.listings_off), social: socialLinks(body.site), share_image: Number(body.site?.share_image) || undefined, share_image_url: body.site?.share_image ? String(body.site?.share_image_url ?? '') : undefined };
+  const site = { ...(current?.value ?? {}), name: body.site?.name, description: body.site?.description, front_page_id: body.site?.front_page_id ?? null, timezone, search_types: searchTypesFrom(body.site?.search_types), templates: templatesFrom(body.site?.templates), taxonomy_templates: taxonomyTemplatesFrom(body.site?.taxonomy_templates), taxonomy_pages_off: taxonomyPagesOffFrom(body.site?.taxonomy_pages_off), taxonomy_meta: pageMetaFrom(body.site?.taxonomy_meta, config.taxonomies.map((t) => t.name)), listing_meta: pageMetaFrom(body.site?.listing_meta, Object.keys(ARCHIVE_PATHS)), listings_off: listingsOffFrom(body.site?.listings_off), social: socialLinks(body.site), share_image: Number(body.site?.share_image) || undefined, share_image_url: body.site?.share_image ? String(body.site?.share_image_url ?? '') : undefined, admin_theme: adminThemeFrom(body.site?.admin_theme) };
   const rows = [{ key: 'site', value: site }, ...(body.options ? [{ key: 'options', value: body.options }] : [])];
   // The site icon: a newly chosen image is made into the icon files; removing it removes them.
   if (body.site && 'icon_media_id' in body.site) {
@@ -97,5 +98,6 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   const after = timezone || config.timezone;
   const moved = after !== before ? await moveEventsToTimezone(locals.db, before, after) : 0;
   await refreshSiteTimezone(locals.db, true);
+  await loadAdminTheme(locals.db, true);
   return Response.json({ ok: true, timezone: SITE_TZ, moved });
 };

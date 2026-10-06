@@ -18,3 +18,19 @@
   --container-content: 720px;
   --container-wide: 1280px;
 }
+
+/* The admin's colors and font. Settings > Admin can change the colors: src/lib/admin-theme.ts writes
+   them (and the colors made from them) on html:root. Static, so Puck's colors in admin.css
+   can use them too. */
+@theme static {
+  --font-admin: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-admin-ink: #1a1a2e;
+  --color-admin-muted: #64748b;
+  --color-admin-accent: #b87333;
+  --color-admin-accent-dark: #9a5f2a;
+  --color-admin-bg: #faf8f5;
+  --color-admin-soft: #f5f3f0;
+  --color-admin-bar: #1a1a2e;
+  --color-admin-on-bar: #fff;
+}

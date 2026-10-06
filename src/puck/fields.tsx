@@ -9,8 +9,8 @@ import type { Media } from '../lib/types';
 type Attrs = Record<string, any>;
 type Set = (patch: Attrs) => void;
 
-const input = 'w-full rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#b87333]';
-const label = 'mb-1 block text-xs font-medium text-[#64748b]';
+const input = 'w-full rounded border border-admin-ink/15 bg-white px-2 py-1.5 text-sm outline-none focus:border-admin-accent';
+const label = 'mb-1 block text-xs font-medium text-admin-muted';
 
 export function Row({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -69,13 +69,13 @@ export function Select({ title, value, onChange, options }: { title: string; val
 export function Segmented({ title, value, onChange, options }: { title: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
   return (
     <FieldGroup title={title}>
-      <div className="flex overflow-hidden rounded border border-[#1a1a2e]/15">
+      <div className="flex overflow-hidden rounded border border-admin-ink/15">
         {options.map(([v, l]) => (
           <button
             key={v}
             type="button"
             aria-pressed={value === v}
-            className={`flex-1 border-l border-[#1a1a2e]/15 px-2 py-1.5 text-xs first:border-l-0 ${value === v ? 'bg-[#1a1a2e] text-white' : 'bg-white hover:text-[#b87333]'}`}
+            className={`flex-1 border-l border-admin-ink/15 px-2 py-1.5 text-xs first:border-l-0 ${value === v ? 'bg-admin-ink text-white' : 'bg-white hover:text-admin-accent'}`}
             onClick={() => onChange(v)}
           >
             {l}
@@ -103,11 +103,11 @@ export function ColorPicker({ title, value, onChange }: { title: string; value: 
   return (
     <FieldGroup title={title}>
       <div className="flex flex-wrap gap-1.5">
-        <button type="button" onClick={() => onChange(undefined)} className={`h-6 w-6 rounded-full border text-[10px] ${!value ? 'ring-2 ring-[#b87333]' : 'border-[#1a1a2e]/20'}`} title="Default">
+        <button type="button" onClick={() => onChange(undefined)} className={`h-6 w-6 rounded-full border text-[10px] ${!value ? 'ring-2 ring-admin-accent' : 'border-admin-ink/20'}`} title="Default">
           /
         </button>
         {themeJson.colors.map((c) => (
-          <button key={c.slug} type="button" title={c.name} onClick={() => onChange(c.slug)} className={`h-6 w-6 rounded-full border border-[#1a1a2e]/20 ${value === c.slug ? 'ring-2 ring-[#b87333] ring-offset-1' : ''}`} style={{ background: c.color }} />
+          <button key={c.slug} type="button" title={c.name} onClick={() => onChange(c.slug)} className={`h-6 w-6 rounded-full border border-admin-ink/20 ${value === c.slug ? 'ring-2 ring-admin-accent ring-offset-1' : ''}`} style={{ background: c.color }} />
         ))}
       </div>
     </FieldGroup>
@@ -127,7 +127,7 @@ export function RichText({ title, value, onChange }: { title: string; value: str
   return (
     <FieldGroup title={title}>
       <div
-        className="rounded border border-[#1a1a2e]/15 bg-white focus-within:border-[#b87333]"
+        className="rounded border border-admin-ink/15 bg-white focus-within:border-admin-accent"
         // Clicking anywhere in the box (not a toolbar button) puts the cursor in the text.
         onMouseDown={(e) => {
           if (e.target === e.currentTarget) {
@@ -136,11 +136,11 @@ export function RichText({ title, value, onChange }: { title: string; value: str
           }
         }}
       >
-        <div className="flex gap-1 border-b border-[#1a1a2e]/10 px-1 py-1 text-xs">
-          <button type="button" className="rounded px-2 py-0.5 font-bold hover:bg-[#f5f3f0]" onMouseDown={(e) => (e.preventDefault(), cmd('bold'))}>B</button>
-          <button type="button" className="rounded px-2 py-0.5 italic hover:bg-[#f5f3f0]" onMouseDown={(e) => (e.preventDefault(), cmd('italic'))}>I</button>
-          <button type="button" className="rounded px-2 py-0.5 underline hover:bg-[#f5f3f0]" onMouseDown={(e) => { e.preventDefault(); const url = prompt('Link URL'); if (url) cmd('createLink', url); }}>Link</button>
-          <button type="button" className="rounded px-2 py-0.5 hover:bg-[#f5f3f0]" onMouseDown={(e) => (e.preventDefault(), cmd('unlink'))}>Unlink</button>
+        <div className="flex gap-1 border-b border-admin-ink/10 px-1 py-1 text-xs">
+          <button type="button" className="rounded px-2 py-0.5 font-bold hover:bg-admin-soft" onMouseDown={(e) => (e.preventDefault(), cmd('bold'))}>B</button>
+          <button type="button" className="rounded px-2 py-0.5 italic hover:bg-admin-soft" onMouseDown={(e) => (e.preventDefault(), cmd('italic'))}>I</button>
+          <button type="button" className="rounded px-2 py-0.5 underline hover:bg-admin-soft" onMouseDown={(e) => { e.preventDefault(); const url = prompt('Link URL'); if (url) cmd('createLink', url); }}>Link</button>
+          <button type="button" className="rounded px-2 py-0.5 hover:bg-admin-soft" onMouseDown={(e) => (e.preventDefault(), cmd('unlink'))}>Unlink</button>
         </div>
         <div ref={ref} contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-label={title} className="min-h-16 cursor-text px-2 py-1.5 text-sm outline-none" onInput={() => onChange(ref.current?.innerHTML ?? '')} />
       </div>
@@ -162,8 +162,8 @@ export function JsonAttrs({ value, onChange }: { value: Attrs; onChange: (v: Att
   const [error, setError] = useState('');
   useEffect(() => setText(JSON.stringify(value ?? {}, null, 2)), [value]);
   return (
-    <details open className="mt-4 border-t border-[#1a1a2e]/10 pt-3">
-      <summary className="cursor-pointer text-xs font-medium text-[#64748b]">Advanced: all attributes (JSON)</summary>
+    <details open className="mt-4 border-t border-admin-ink/10 pt-3">
+      <summary className="cursor-pointer text-xs font-medium text-admin-muted">Advanced: all attributes (JSON)</summary>
       <textarea
         className={`${input} mt-2 font-mono text-xs`}
         rows={14}
@@ -191,8 +191,8 @@ export function MediaPicker({ title, url, onSelect }: { title: string; url?: str
   return (
     <FieldGroup title={title}>
       <div className="flex items-center gap-2">
-        {url ? <img src={url} alt="" className="h-14 w-20 rounded border border-[#1a1a2e]/10 object-cover" /> : <div className="h-14 w-20 rounded border border-dashed border-[#1a1a2e]/20" />}
-        <button type="button" className="rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 text-xs hover:border-[#b87333]" onClick={() => setOpen(true)}>
+        {url ? <img src={url} alt="" className="h-14 w-20 rounded border border-admin-ink/10 object-cover" /> : <div className="h-14 w-20 rounded border border-dashed border-admin-ink/20" />}
+        <button type="button" className="rounded border border-admin-ink/15 bg-white px-3 py-1.5 text-xs hover:border-admin-accent" onClick={() => setOpen(true)}>
           {url ? 'Replace' : 'Choose'}
         </button>
       </div>
@@ -234,20 +234,20 @@ export function MediaModal({ onClose, onSelect, multiple, onSelectMany, only }: 
     else alert(await res.text());
   };
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-[#1a1a2e]/50 p-8" onClick={onClose}>
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-admin-ink/50 p-8" onClick={onClose}>
       <div className="flex max-h-full w-full max-w-4xl flex-col rounded bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3 border-b border-[#1a1a2e]/10 p-3">
+        <div className="flex items-center gap-3 border-b border-admin-ink/10 p-3">
           <input className={`${input} max-w-xs`} placeholder="Search media" value={q} onChange={(e) => setQ(e.target.value)} />
-          <label className="cursor-pointer rounded-sm bg-[#1a1a2e] px-3 py-1.5 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">
+          <label className="cursor-pointer rounded-sm bg-admin-ink px-3 py-1.5 text-xs font-semibold tracking-wider text-white uppercase hover:bg-admin-accent">
             {busy ? 'Uploading…' : 'Upload'}
             <input type="file" accept={only === 'video' ? 'video/mp4,video/webm,video/quicktime' : multiple && !only ? 'image/*,video/mp4,video/webm,video/quicktime' : 'image/*'} multiple={multiple} className="hidden" onChange={(e) => e.target.files && Array.from(e.target.files).forEach(upload)} />
           </label>
           {multiple && (
-            <button type="button" disabled={!picked.length} className="ml-auto rounded-sm bg-[#b87333] px-3 py-1.5 text-xs font-semibold tracking-wider text-white uppercase disabled:opacity-40" onClick={() => onSelectMany?.(picked.map(asPicked))}>
+            <button type="button" disabled={!picked.length} className="ml-auto rounded-sm bg-admin-accent px-3 py-1.5 text-xs font-semibold tracking-wider text-white uppercase disabled:opacity-40" onClick={() => onSelectMany?.(picked.map(asPicked))}>
               Add {picked.length || ''} selected
             </button>
           )}
-          <button type="button" className={`${multiple ? '' : 'ml-auto '}text-sm text-[#64748b] hover:text-[#1a1a2e]`} onClick={onClose}>Close</button>
+          <button type="button" className={`${multiple ? '' : 'ml-auto '}text-sm text-admin-muted hover:text-admin-ink`} onClick={onClose}>Close</button>
         </div>
         <div className="grid grid-cols-6 gap-2 overflow-auto p-3">
           {items.map((m) => {
@@ -263,12 +263,12 @@ export function MediaModal({ onClose, onSelect, multiple, onSelectMany, only }: 
                 onClick={() => (multiple ? toggle(m) : onSelect?.(asPicked(m)))}
               >
                 {video ? (
-                  <span className={`flex aspect-square w-full items-center justify-center rounded bg-[#1a1a2e] text-[10px] font-semibold tracking-wider text-white ring-[#b87333] group-hover:ring-2 ${on ? 'ring-4' : ''}`}>VIDEO</span>
+                  <span className={`flex aspect-square w-full items-center justify-center rounded bg-admin-ink text-[10px] font-semibold tracking-wider text-white ring-admin-accent group-hover:ring-2 ${on ? 'ring-4' : ''}`}>VIDEO</span>
                 ) : (
-                  <img src={thumb} alt="" loading="lazy" className={`aspect-square w-full rounded object-cover ring-[#b87333] group-hover:ring-2 ${on ? 'ring-4' : ''}`} />
+                  <img src={thumb} alt="" loading="lazy" className={`aspect-square w-full rounded object-cover ring-admin-accent group-hover:ring-2 ${on ? 'ring-4' : ''}`} />
                 )}
-                {multiple && on && <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#b87333] text-[11px] font-semibold text-white">{picked.findIndex((x) => x.id === m.id) + 1}</span>}
-                <span className="mt-1 block truncate text-[11px] text-[#64748b]">{m.path.split('/').pop()}</span>
+                {multiple && on && <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-admin-accent text-[11px] font-semibold text-white">{picked.findIndex((x) => x.id === m.id) + 1}</span>}
+                <span className="mt-1 block truncate text-[11px] text-admin-muted">{m.path.split('/').pop()}</span>
               </button>
             );
           })}

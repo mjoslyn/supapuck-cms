@@ -245,21 +245,21 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
     }
   };
 
-  const chip = 'flex max-w-full items-center gap-1.5 rounded border border-[#1a1a2e]/10 bg-white px-1.5 py-0.5 text-[11px]';
+  const chip = 'flex max-w-full items-center gap-1.5 rounded border border-admin-ink/10 bg-white px-1.5 py-0.5 text-[11px]';
   const badge = (kind: string) => (
-    <span className={`rounded px-1 py-px text-[9px] font-semibold tracking-wider text-white uppercase ${kind === 'video' ? 'bg-[#1a1a2e]' : kind === 'doc' ? 'bg-[#b87333]' : kind === 'image' ? 'bg-[#6b8f71]' : 'bg-[#64748b]'}`}>{kind}</span>
+    <span className={`rounded px-1 py-px text-[9px] font-semibold tracking-wider text-white uppercase ${kind === 'video' ? 'bg-admin-ink' : kind === 'doc' ? 'bg-admin-accent' : kind === 'image' ? 'bg-[#6b8f71]' : 'bg-admin-muted'}`}>{kind}</span>
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#faf8f5] text-[#1a1a2e]" onDragOver={(e) => (e.preventDefault(), setDragging(true))} onDragLeave={(e) => e.currentTarget === e.target && setDragging(false)} onDrop={onDrop}>
+    <div className="flex h-full min-h-0 flex-col bg-admin-bg text-admin-ink" onDragOver={(e) => (e.preventDefault(), setDragging(true))} onDragLeave={(e) => e.currentTarget === e.target && setDragging(false)} onDrop={onDrop}>
       {(onClose || onPin) && (
-        <div className="flex items-center gap-2 border-b border-[#1a1a2e]/10 bg-white px-3 py-2">
-          <h2 className="font-[Fraunces,Georgia,serif] text-lg">Compose</h2>
-          <span className="text-[11px] text-[#64748b]">with Claude</span>
+        <div className="flex items-center gap-2 border-b border-admin-ink/10 bg-white px-3 py-2">
+          <h2 className="text-lg">Compose</h2>
+          <span className="text-[11px] text-admin-muted">with Claude</span>
           {entryId && turns.length > 0 && !busy && (
             <button
               type="button"
-              className="ml-auto rounded border border-[#1a1a2e]/15 px-2 py-0.5 text-xs text-[#64748b] hover:text-[#1a1a2e]"
+              className="ml-auto rounded border border-admin-ink/15 px-2 py-0.5 text-xs text-admin-muted hover:text-admin-ink"
               title="Start a new conversation for this page (the page stays as it is)"
               onClick={() => {
                 if (!confirm('Start a new conversation? Claude starts fresh, without this conversation\'s messages and materials. The page stays as it is.')) return;
@@ -272,12 +272,12 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
             </button>
           )}
           {onPin && (
-            <button type="button" onClick={() => onPin(!pinned)} aria-pressed={pinned} title={pinned ? 'Unpin from the sidebar' : 'Pin to the sidebar (stays open)'} className={`${entryId && turns.length > 0 && !busy ? '' : 'ml-auto '}rounded border px-2 py-0.5 text-xs ${pinned ? 'border-[#b87333] bg-[#b87333]/10 text-[#b87333]' : 'border-[#1a1a2e]/15 text-[#64748b] hover:text-[#1a1a2e]'}`}>
+            <button type="button" onClick={() => onPin(!pinned)} aria-pressed={pinned} title={pinned ? 'Unpin from the sidebar' : 'Pin to the sidebar (stays open)'} className={`${entryId && turns.length > 0 && !busy ? '' : 'ml-auto '}rounded border px-2 py-0.5 text-xs ${pinned ? 'border-admin-accent bg-admin-accent/10 text-admin-accent' : 'border-admin-ink/15 text-admin-muted hover:text-admin-ink'}`}>
               {pinned ? 'Pinned' : 'Pin'}
             </button>
           )}
           {onClose && (
-            <button type="button" onClick={onClose} className={`${onPin ? '' : 'ml-auto '}text-xs text-[#64748b] hover:text-[#b87333]`}>
+            <button type="button" onClick={onClose} className={`${onPin ? '' : 'ml-auto '}text-xs text-admin-muted hover:text-admin-accent`}>
               Close
             </button>
           )}
@@ -285,21 +285,21 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
       )}
 
       <div ref={scroller} className="min-h-0 flex-1 space-y-3 overflow-auto p-3">
-        {!loaded && <p className="text-xs text-[#64748b]">Loading the conversation…</p>}
+        {!loaded && <p className="text-xs text-admin-muted">Loading the conversation…</p>}
         {loaded && !turns.length && (
-          <div className="rounded border border-dashed border-[#1a1a2e]/15 p-3 text-sm text-[#64748b]">
-            <p className="mb-2 font-medium text-[#1a1a2e]">{live ? 'Add sections to this page' : 'Describe the page you want'}</p>
+          <div className="rounded border border-dashed border-admin-ink/15 p-3 text-sm text-admin-muted">
+            <p className="mb-2 font-medium text-admin-ink">{live ? 'Add sections to this page' : 'Describe the page you want'}</p>
             <p>Add documents, images, videos, video links and web links, and say what the page is for. Claude lays it out in the site's style; then ask for changes here, now or later.</p>
           </div>
         )}
         {turns.map((t, i) => (
           <div key={i} className={t.role === 'user' ? 'ml-6' : 'mr-6'}>
-            <div className={`rounded-lg px-3 py-2 text-sm ${t.role === 'user' ? 'bg-[#1a1a2e] text-white' : t.error ? 'bg-[#c4592a]/10 text-[#c4592a]' : 'bg-white shadow-[0_0_0_1px_rgba(26,26,46,0.08)]'}`}>
+            <div className={`rounded-lg px-3 py-2 text-sm ${t.role === 'user' ? 'bg-admin-ink text-white' : t.error ? 'bg-[#c4592a]/10 text-[#c4592a]' : 'bg-white shadow-[0_0_0_1px_rgba(26,26,46,0.08)]'}`}>
               {t.text && (t.role === 'assistant' && !t.error ? <Reply text={t.text} /> : <p className="whitespace-pre-wrap">{t.text}</p>)}
               {t.attachments?.length ? (
                 <div className={`flex flex-wrap gap-1 ${t.text ? 'mt-2' : ''}`}>
                   {t.attachments.map((a, j) => (
-                    <span key={j} className={`${chip} text-[#1a1a2e]`}>
+                    <span key={j} className={`${chip} text-admin-ink`}>
                       {badge(a.kind)}
                       <span className="truncate">{a.label}</span>
                     </span>
@@ -310,18 +310,18 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
               {t.edited && <p className="mt-2 text-xs text-[#6b8f71]">Changed the selected block</p>}
               {!!t.fields?.length && <p className="mt-2 text-xs text-[#6b8f71]">Updated the details: {t.fields.map((k) => (k === 'seo' ? 'SEO' : k.replace(/_/g, ' '))).join(', ')}</p>}
               {t.built && <p className="mt-2 text-xs text-[#6b8f71]">{live ? 'Updated the page' : 'Built'}: {t.built.title}{t.built.sections ? ` (${t.built.sections} sections)` : ''}</p>}
-              {t.pending && <p className="mt-1 animate-pulse text-xs text-[#64748b]">{t.status}</p>}
+              {t.pending && <p className="mt-1 animate-pulse text-xs text-admin-muted">{t.status}</p>}
             </div>
           </div>
         ))}
       </div>
 
-      <div className={`border-t border-[#1a1a2e]/10 bg-white p-3 ${dragging ? 'ring-2 ring-[#b87333] ring-inset' : ''}`}>
+      <div className={`border-t border-admin-ink/10 bg-white p-3 ${dragging ? 'ring-2 ring-admin-accent ring-inset' : ''}`}>
         {selection && live && (
           <div className="mb-2 flex items-center gap-1.5 text-[11px]">
             {targetItem ? (
               <>
-                <span className="flex min-w-0 items-center gap-1 rounded border border-[#b87333]/40 bg-[#b87333]/10 px-1.5 py-0.5 text-[#8a5a1f]">
+                <span className="flex min-w-0 items-center gap-1 rounded border border-admin-accent/40 bg-admin-accent/10 px-1.5 py-0.5 text-[#8a5a1f]">
                   <span className="shrink-0 font-semibold">Editing</span>
                   <span className="truncate">{blockLabel(targetItem)}</span>
                   <button type="button" aria-label="Don't target the selection" className="ml-0.5 text-[#8a5a1f] hover:text-[#c4592a]" onClick={() => setDismissed(selectedId)}>
@@ -329,9 +329,9 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
                   </button>
                 </span>
                 {selection.top !== selection.item && (
-                  <span className="flex shrink-0 overflow-hidden rounded border border-[#1a1a2e]/15">
+                  <span className="flex shrink-0 overflow-hidden rounded border border-admin-ink/15">
                     {(['block', 'section'] as const).map((sc) => (
-                      <button key={sc} type="button" onClick={() => setScope(sc)} className={`px-1.5 py-0.5 ${scope === sc ? 'bg-[#1a1a2e] text-white' : 'text-[#64748b]'}`}>
+                      <button key={sc} type="button" onClick={() => setScope(sc)} className={`px-1.5 py-0.5 ${scope === sc ? 'bg-admin-ink text-white' : 'text-admin-muted'}`}>
                         {sc === 'block' ? 'Block' : 'Section'}
                       </button>
                     ))}
@@ -339,7 +339,7 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
                 )}
               </>
             ) : (
-              <button type="button" className="text-[#64748b] underline hover:text-[#b87333]" onClick={() => setDismissed(null)}>
+              <button type="button" className="text-admin-muted underline hover:text-admin-accent" onClick={() => setDismissed(null)}>
                 Edit the selected {typeName(selection.item.type).toLowerCase()} instead
               </button>
             )}
@@ -351,9 +351,9 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
               <span key={m.id} className={chip}>
                 {m.kind === 'image' ? <img src={m.url} alt="" className="h-5 w-5 rounded object-cover" /> : badge('video')}
                 <span className="max-w-32 truncate">{m.name}</span>
-                {m.status === 'uploading' && <span className="text-[#64748b]">…</span>}
+                {m.status === 'uploading' && <span className="text-admin-muted">…</span>}
                 {m.status === 'error' && <span className="text-[#c4592a]" title={m.error}>failed</span>}
-                <button type="button" aria-label={`Remove ${m.name}`} className="text-[#64748b] hover:text-[#c4592a]" onClick={() => setMedia((x) => x.filter((y) => y !== m))}>
+                <button type="button" aria-label={`Remove ${m.name}`} className="text-admin-muted hover:text-[#c4592a]" onClick={() => setMedia((x) => x.filter((y) => y !== m))}>
                   ×
                 </button>
               </span>
@@ -362,7 +362,7 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
               <span key={`${d.name}-${i}`} className={chip}>
                 {badge('doc')}
                 <span className="max-w-32 truncate">{d.name}</span>
-                <button type="button" aria-label={`Remove ${d.name}`} className="text-[#64748b] hover:text-[#c4592a]" onClick={() => setDocs((x) => x.filter((y) => y !== d))}>
+                <button type="button" aria-label={`Remove ${d.name}`} className="text-admin-muted hover:text-[#c4592a]" onClick={() => setDocs((x) => x.filter((y) => y !== d))}>
                   ×
                 </button>
               </span>
@@ -371,7 +371,7 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
               <span key={l} className={chip}>
                 {badge(isVideoLink(l) ? 'video' : 'link')}
                 <span className="max-w-40 truncate">{l}</span>
-                <button type="button" aria-label={`Remove ${l}`} className="text-[#64748b] hover:text-[#c4592a]" onClick={() => setLinks((x) => x.filter((y) => y !== l))}>
+                <button type="button" aria-label={`Remove ${l}`} className="text-admin-muted hover:text-[#c4592a]" onClick={() => setLinks((x) => x.filter((y) => y !== l))}>
                   ×
                 </button>
               </span>
@@ -382,7 +382,7 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
           <div className="mb-2 flex gap-1">
             <input
               autoFocus
-              className="flex-1 rounded border border-[#1a1a2e]/15 px-2 py-1 text-xs outline-none focus:border-[#b87333]"
+              className="flex-1 rounded border border-admin-ink/15 px-2 py-1 text-xs outline-none focus:border-admin-accent"
               placeholder="https://… (YouTube and Vimeo links become videos)"
               value={linkDraft}
               onChange={(e) => setLinkDraft(e.target.value)}
@@ -394,13 +394,13 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
                 if (e.key === 'Escape') setShowLink(false);
               }}
             />
-            <button type="button" className="rounded border border-[#1a1a2e]/15 px-2 text-xs hover:border-[#b87333]" onClick={() => addLinks(linkDraft)}>
+            <button type="button" className="rounded border border-admin-ink/15 px-2 text-xs hover:border-admin-accent" onClick={() => addLinks(linkDraft)}>
               Add
             </button>
           </div>
         )}
         <textarea
-          className="max-h-48 min-h-20 w-full resize-y rounded border border-[#1a1a2e]/15 p-2 text-sm outline-none focus:border-[#b87333]"
+          className="max-h-48 min-h-20 w-full resize-y rounded border border-admin-ink/15 p-2 text-sm outline-none focus:border-admin-accent"
           placeholder={targetItem ? 'What should change in the selected block? e.g. "Warmer, half as long"' : turns.length ? 'Ask for changes, e.g. "Shorter intro, and pull in our sponsors near the end"' : live ? 'What should these sections be about?' : 'e.g. A page for the Summer Music Festival: lineup from the PDF, the photos, the promo video, a ticket link and our sponsors.'}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -418,20 +418,20 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
           }}
         />
         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-          <button type="button" className="rounded border border-[#1a1a2e]/15 px-2 py-1 hover:border-[#b87333]" onClick={() => fileInput.current?.click()}>
+          <button type="button" className="rounded border border-admin-ink/15 px-2 py-1 hover:border-admin-accent" onClick={() => fileInput.current?.click()}>
             Files
           </button>
-          <button type="button" className="rounded border border-[#1a1a2e]/15 px-2 py-1 hover:border-[#b87333]" onClick={() => setPicking(true)}>
+          <button type="button" className="rounded border border-admin-ink/15 px-2 py-1 hover:border-admin-accent" onClick={() => setPicking(true)}>
             Media library
           </button>
-          <button type="button" className="rounded border border-[#1a1a2e]/15 px-2 py-1 hover:border-[#b87333]" onClick={() => setShowLink((v) => !v)}>
+          <button type="button" className="rounded border border-admin-ink/15 px-2 py-1 hover:border-admin-accent" onClick={() => setShowLink((v) => !v)}>
             Link
           </button>
           <input ref={fileInput} type="file" multiple hidden accept="image/*,video/mp4,video/webm,video/quicktime,.pdf,.docx,.txt,.md,.markdown,.html,.htm,.csv" onChange={(e) => (e.target.files && addFiles(e.target.files), (e.target.value = ''))} />
           {!live && !turns.length && (
-            <label className="flex items-center gap-1 text-[#64748b]" title="The content type Claude creates">
+            <label className="flex items-center gap-1 text-admin-muted" title="The content type Claude creates">
               Create as
-              <select className="rounded border border-[#1a1a2e]/15 px-1 py-1 text-[#1a1a2e]" value={type} onChange={(e) => setType(e.target.value)}>
+              <select className="rounded border border-admin-ink/15 px-1 py-1 text-admin-ink" value={type} onChange={(e) => setType(e.target.value)}>
                 {COMPOSABLE_TYPES.map((c) => (
                   <option key={c.type} value={c.type}>
                     {c.singular}
@@ -441,12 +441,12 @@ export default function Composer({ entryId, live, selection, onClose, pinned, on
             </label>
           )}
           {live && first && pageHasContent && !targetItem && (
-            <label className="flex items-center gap-1 text-[#64748b]">
+            <label className="flex items-center gap-1 text-admin-muted">
               <input type="checkbox" checked={replaceAll} onChange={(e) => setReplaceAll(e.target.checked)} />
               Replace what's on the page
             </label>
           )}
-          <button type="button" disabled={!canSend} onClick={send} className="ml-auto rounded-sm bg-[#1a1a2e] px-4 py-1.5 font-semibold tracking-wider text-white uppercase hover:bg-[#b87333] disabled:opacity-40">
+          <button type="button" disabled={!canSend} onClick={send} className="ml-auto rounded-sm bg-admin-ink px-4 py-1.5 font-semibold tracking-wider text-white uppercase hover:bg-admin-accent disabled:opacity-40">
             {busy ? 'Working…' : 'Send'}
           </button>
         </div>

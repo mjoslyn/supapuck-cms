@@ -1,6 +1,6 @@
 // Site settings island, in tabs: General (name, tagline, front page, timezone), Types (the templates for
 // each type's pages and listing), Search (the types it covers), Social (profile links, default share
-// image), Redirects (saved as they are added, with the Not found log), Sync (with another copy of the
+// image), Admin (the admin's colors), Redirects (saved as they are added, with the Not found log), Sync (with another copy of the
 // site), Backups (snapshots and sync backups) and the site's own options. One Save for all;
 // the tab is in the URL (#search), and leaving with unsaved changes asks first.
 import { Fragment, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
@@ -8,7 +8,7 @@ import { FieldsForm } from './entry-fields';
 import { SITE_EDITOR } from '../lib/site/editor';
 import { ARCHIVE_PATHS, CONTENT_TYPES, PAGELESS_TYPES, SEARCHABLE_TYPES, TYPE_BASES, site as config, taxonomiesOf, taxonomyLabel, typeDef } from '../lib/site';
 import { NO_CONTENT_WARNING, chosenTemplate, defaultTaxonomyTemplates, defaultTemplates, templateLabel, type TemplateInfo, type TemplateMap } from '../lib/templates';
-import { MediaPicker, Row, Select, Text, Toggle, inputClass } from './fields';
+import { FieldGroup, MediaPicker, Row, Select, Text, Toggle, inputClass } from './fields';
 import { NETWORKS } from '../lib/social/icons';
 import Redirects, { type NotFound } from '../admin/Redirects';
 import Sync from '../admin/Sync';
@@ -16,9 +16,10 @@ import BackupsTab from '../admin/Backups';
 import type { Redirect } from '../lib/redirects';
 import { MENU_FIELDS } from '../lib/navigation';
 import type { TaxonomyMeta } from '../lib/page-meta';
+import { ADMIN_THEME_DEFAULTS, ADMIN_THEME_FIELDS, adminThemeVars, contrast, type AdminTheme } from '../lib/admin-theme';
 
 interface Props {
-  site: { name?: string; description?: string; front_page_id?: number | null; timezone?: string; search_types?: string[]; social?: { network: string; url: string }[]; share_image?: number; share_image_url?: string; templates?: TemplateMap; taxonomy_templates?: Record<string, string>; taxonomy_pages_off?: string[]; taxonomy_meta?: Record<string, TaxonomyMeta>; listing_meta?: Record<string, TaxonomyMeta>; listings_off?: string[]; icons?: Record<string, string>; icon_media_id?: number | null; icon_preview?: string };
+  site: { name?: string; description?: string; front_page_id?: number | null; timezone?: string; search_types?: string[]; social?: { network: string; url: string }[]; share_image?: number; share_image_url?: string; templates?: TemplateMap; taxonomy_templates?: Record<string, string>; taxonomy_pages_off?: string[]; taxonomy_meta?: Record<string, TaxonomyMeta>; listing_meta?: Record<string, TaxonomyMeta>; listings_off?: string[]; icons?: Record<string, string>; icon_media_id?: number | null; icon_preview?: string; admin_theme?: AdminTheme };
   options: Record<string, any>;
   pages: { id: number; title: string }[];
   templates: TemplateInfo[];
@@ -58,6 +59,11 @@ export default function SiteSettings({ site: initialSite, options: initialOption
   useEffect(() => {
     if (dirty && status.startsWith('Saved')) setStatus('');
   }, [dirty]);
+  // The admin colors as they are picked, on this page (the saved ones load with every admin page).
+  useEffect(() => {
+    const vars = { ...ADMIN_THEME_DEFAULTS, ...adminThemeVars(site.admin_theme) };
+    for (const [k, v] of Object.entries(vars)) document.documentElement.style.setProperty(k, v);
+  }, [site.admin_theme]);
   const save = async () => {
     // Types whose pages would lose their own content with the template chosen for them.
     const lacking = Object.entries(site.templates ?? {})
@@ -86,7 +92,7 @@ export default function SiteSettings({ site: initialSite, options: initialOption
           options={TIMEZONES.map((t) => [t, t.replace(/_/g, ' ')] as [string, string])}
           onChange={(v) => setSite({ ...site, timezone: v || undefined })}
         />
-        <p className="-mt-2 mb-3 text-xs text-[#64748b]">Default: {config.timezone.replace(/_/g, ' ')}. Event times, dates and calendars use it; events on the old timezone keep their local times when it changes.</p>
+        <p className="-mt-2 mb-3 text-xs text-admin-muted">Default: {config.timezone.replace(/_/g, ' ')}. Event times, dates and calendars use it; events on the old timezone keep their local times when it changes.</p>
         </>
       ),
     },
@@ -105,7 +111,7 @@ export default function SiteSettings({ site: initialSite, options: initialOption
       label: 'Search',
       panel: (
         <>
-        <p className="mb-3 text-xs text-[#64748b]">What site search and its live results cover.</p>
+        <p className="mb-3 text-xs text-admin-muted">What site search and its live results cover.</p>
         {SEARCHABLE_TYPES.map((type) => {
           const chosen = site.search_types ?? SEARCHABLE_TYPES;
           const on = chosen.includes(type);
@@ -130,7 +136,7 @@ export default function SiteSettings({ site: initialSite, options: initialOption
       label: 'Social',
       panel: (
         <>
-        <p className="mb-3 text-xs text-[#64748b]">Profiles shown by the Social links block and listed for search engines.</p>
+        <p className="mb-3 text-xs text-admin-muted">Profiles shown by the Social links block and listed for search engines.</p>
         {(site.social ?? []).map((l, i, all) => {
           const update = (patch: Partial<{ network: string; url: string }>) => setSite({ ...site, social: all.map((x, k) => (k === i ? { ...x, ...patch } : x)) });
           const move = (d: number) => {
@@ -139,7 +145,7 @@ export default function SiteSettings({ site: initialSite, options: initialOption
             setSite({ ...site, social: next });
           };
           return (
-            <div key={i} className="mb-3 rounded border border-[#1a1a2e]/10 bg-white p-2">
+            <div key={i} className="mb-3 rounded border border-admin-ink/10 bg-white p-2">
               <div className="mb-1 flex gap-2">
                 <select aria-label="Network" className={inputClass} value={l.network} onChange={(e) => update({ network: e.target.value })}>
                   {Object.entries(NETWORKS).map(([k, n]) => (
@@ -159,18 +165,18 @@ export default function SiteSettings({ site: initialSite, options: initialOption
             </div>
           );
         })}
-        <button type="button" className="mb-4 rounded-sm border border-dashed border-[#1a1a2e]/25 px-3 py-1.5 text-xs text-[#64748b] hover:border-[#1a1a2e]/50" onClick={() => setSite({ ...site, social: [...(site.social ?? []), { network: 'facebook', url: '' }] })}>
+        <button type="button" className="mb-4 rounded-sm border border-dashed border-admin-ink/25 px-3 py-1.5 text-xs text-admin-muted hover:border-admin-ink/50" onClick={() => setSite({ ...site, social: [...(site.social ?? []), { network: 'facebook', url: '' }] })}>
           Add link
         </button>
         <MediaPicker title="Site icon (favicon)" url={site.icon_preview ?? site.icons?.['192']} onSelect={(m) => setSite({ ...site, icon_media_id: m.id ?? m.mediaId ?? null, icon_preview: m.url })} />
-        <p className="-mt-2 mb-3 text-xs text-[#64748b]">A square image at least 512px wide works best (it's cropped square around its focal point). Shown in browser tabs, on phone home screens and in the site header; made into the icon files when you save.</p>
+        <p className="-mt-2 mb-3 text-xs text-admin-muted">A square image at least 512px wide works best (it's cropped square around its focal point). Shown in browser tabs, on phone home screens and in the site header; made into the icon files when you save.</p>
         {(site.icon_media_id || site.icons?.['192']) && (
           <button type="button" className="mb-4 block text-xs text-[#b3261e]" onClick={() => setSite({ ...site, icon_media_id: null, icon_preview: undefined, icons: undefined })}>
             Remove site icon
           </button>
         )}
         <MediaPicker title="Default share image" url={site.share_image_url} onSelect={(m) => setSite({ ...site, share_image: m.id ?? m.mediaId ?? undefined, share_image_url: m.url })} />
-        <p className="-mt-2 mb-3 text-xs text-[#64748b]">Shown when a page without its own image is shared.</p>
+        <p className="-mt-2 mb-3 text-xs text-admin-muted">Shown when a page without its own image is shared.</p>
         {!!site.share_image && (
           <button type="button" className="mb-3 block text-xs text-[#b3261e]" onClick={() => setSite({ ...site, share_image: undefined, share_image_url: undefined })}>
             Remove default share image
@@ -184,10 +190,15 @@ export default function SiteSettings({ site: initialSite, options: initialOption
       label: 'Menu',
       panel: (
         <>
-          <p className="mb-3 text-xs text-[#64748b]">The Navigation block's items. An item with links, an intro or cards opens a panel; cards are the entries you pick, or the latest of a type (upcoming, for events).</p>
+          <p className="mb-3 text-xs text-admin-muted">The Navigation block's items. An item with links, an intro or cards opens a panel; cards are the entries you pick, or the latest of a type (upcoming, for events).</p>
           <FieldsForm defs={MENU_FIELDS} value={options} onChange={setOptions} />
         </>
       ),
+    },
+    {
+      id: 'admin',
+      label: 'Admin',
+      panel: <AdminColors value={site.admin_theme ?? {}} onChange={(t) => setSite((s) => ({ ...s, admin_theme: Object.keys(t).length ? t : undefined }))} />,
     },
     { id: 'redirects', label: 'Redirects', panel: <Redirects initial={redirects} notFound={notFound} /> },
     { id: 'sync', label: 'Sync', panel: <Sync /> },
@@ -213,7 +224,7 @@ export default function SiteSettings({ site: initialSite, options: initialOption
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-[#1a1a2e]/10">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-admin-ink/10">
         <div role="tablist" aria-label="Settings" className="flex gap-1" onKeyDown={onKey}>
           {tabs.map((t) => {
             const selected = t.id === current.id;
@@ -230,7 +241,7 @@ export default function SiteSettings({ site: initialSite, options: initialOption
                 aria-controls={`settings-panel-${t.id}`}
                 tabIndex={selected ? 0 : -1}
                 onClick={() => choose(t.id)}
-                className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${selected ? 'border-[#b87333] text-[#1a1a2e]' : 'border-transparent text-[#64748b] hover:text-[#1a1a2e]'}`}
+                className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${selected ? 'border-admin-accent text-admin-ink' : 'border-transparent text-admin-muted hover:text-admin-ink'}`}
               >
                 {t.label}
               </button>
@@ -238,12 +249,12 @@ export default function SiteSettings({ site: initialSite, options: initialOption
           })}
         </div>
         <div className="flex items-center gap-3 pb-2">
-          <p className="text-xs text-[#64748b]" role="status">
+          <p className="text-xs text-admin-muted" role="status">
             {status || (dirty ? 'Unsaved changes' : '')}
           </p>
           {/* Redirects, Sync and Backups save as they go; Save covers the other tabs. */}
           {(!['redirects', 'sync', 'backups'].includes(current.id) || dirty) && (
-            <button type="button" onClick={save} className="rounded-sm bg-[#1a1a2e] px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">
+            <button type="button" onClick={save} className="rounded-sm bg-admin-ink px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-admin-accent">
               Save settings
             </button>
           )}
@@ -301,23 +312,23 @@ function TypeTemplates({ value, off, templates, meta, onChange, onListings, onMe
           {listing && <option value={OFF}>Off: no listing page</option>}
         </select>
         {shown && !listing?.off && (
-          <a className="shrink-0 text-xs text-[#b87333] hover:underline" href={`/admin/templates/template/${shown}/`}>
+          <a className="shrink-0 text-xs text-admin-accent hover:underline" href={`/admin/templates/template/${shown}/`}>
             Edit
           </a>
         )}
         {!listing?.off && listing?.extra}
       </div>
       {lacking && <p className="mt-1 text-xs text-[#b3261e]">{NO_CONTENT_WARNING}</p>}
-      {listing && <p className="mt-1 text-xs text-[#64748b]">{listing.note}</p>}
+      {listing && <p className="mt-1 text-xs text-admin-muted">{listing.note}</p>}
       </>
     );
   };
   return (
     <>
-      <p className="mb-4 text-xs text-[#64748b]">The template for each type's pages and for its listing page; choose Off to turn a listing page off. A template chosen on an entry itself (in its settings) comes first. Under each type, its taxonomies (set in the site config; each gets a picker in an entry's settings).</p>
+      <p className="mb-4 text-xs text-admin-muted">The template for each type's pages and for its listing page; choose Off to turn a listing page off. A template chosen on an entry itself (in its settings) comes first. Under each type, its taxonomies (set in the site config; each gets a picker in an entry's settings).</p>
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-left text-xs text-[#64748b]">
+          <tr className="text-left text-xs text-admin-muted">
             <th className="pb-2 font-medium">Type</th>
             <th className="pb-2 font-medium">Pages</th>
             <th className="pb-2 font-medium">Listing page</th>
@@ -326,11 +337,11 @@ function TypeTemplates({ value, off, templates, meta, onChange, onListings, onMe
         <tbody>
           {types.map((t) => (
             <Fragment key={t.type}>
-            <tr className="border-t border-[#1a1a2e]/10 align-top">
+            <tr className="border-t border-admin-ink/10 align-top">
               <th scope="row" className="py-3 pr-4 text-left font-medium">
                 {t.label}
-                <span className="block text-xs font-normal text-[#64748b]">{TYPE_BASES[t.type] ? `/${TYPE_BASES[t.type]}/<slug>/` : '/<slug>/'}</span>
-                <span className="block text-xs font-normal text-[#64748b]">{[...taxonomiesOf(t.type).map(taxonomyLabel), ...(t.type !== 'global' ? ['Tags'] : [])].join(', ') || 'No taxonomies'}</span>
+                <span className="block text-xs font-normal text-admin-muted">{TYPE_BASES[t.type] ? `/${TYPE_BASES[t.type]}/<slug>/` : '/<slug>/'}</span>
+                <span className="block text-xs font-normal text-admin-muted">{[...taxonomiesOf(t.type).map(taxonomyLabel), ...(t.type !== 'global' ? ['Tags'] : [])].join(', ') || 'No taxonomies'}</span>
               </th>
               <td className="py-3 pr-4">{pick(t.type, 'single')}</td>
               <td className="py-3">
@@ -344,7 +355,7 @@ function TypeTemplates({ value, off, templates, meta, onChange, onListings, onMe
                     extra: <PageDefaults kind="listing" name={t.type} label={t.label} path={ARCHIVE_PATHS[t.type]} value={meta[t.type] ?? {}} onChange={(m) => setMeta(t.type, m)} />,
                   })
                 ) : (
-                  <span className="text-xs text-[#64748b]">No listing page</span>
+                  <span className="text-xs text-admin-muted">No listing page</span>
                 )}
               </td>
             </tr>
@@ -383,23 +394,23 @@ function PageDefaults({ kind, name, label, path, value, onChange }: { kind: 'tax
   };
   return (
     <>
-    <button type="button" className="shrink-0 text-xs text-[#b87333] hover:underline" aria-label={`${what}: featured image and SEO`} onClick={() => dialog.current?.showModal()}>
-      SEO{set && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[#b87333] align-middle" aria-label="(set)" />}
+    <button type="button" className="shrink-0 text-xs text-admin-accent hover:underline" aria-label={`${what}: featured image and SEO`} onClick={() => dialog.current?.showModal()}>
+      SEO{set && <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-admin-accent align-middle" aria-label="(set)" />}
     </button>
     <dialog ref={dialog} aria-labelledby={`meta-${kind}-${name}`} className="m-auto max-h-[90vh] w-[min(36rem,95vw)] rounded-sm p-0 shadow-xl backdrop:bg-black/40">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[#1a1a2e]/10 bg-white px-5 py-3">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-admin-ink/10 bg-white px-5 py-3">
         <h2 id={`meta-${kind}-${name}`} className="text-base font-semibold">
           {what}: featured image and SEO
         </h2>
-        <button type="button" onClick={() => dialog.current?.close()} className="shrink-0 rounded-sm bg-[#1a1a2e] px-3 py-1 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">
+        <button type="button" onClick={() => dialog.current?.close()} className="shrink-0 rounded-sm bg-admin-ink px-3 py-1 text-xs font-semibold tracking-wider text-white uppercase hover:bg-admin-accent">
           Done
         </button>
       </div>
       <div className="p-5">
       {kind === 'taxonomy' ? (
-        <p className="mb-3 text-xs text-[#64748b]">Defaults for {label.toLowerCase()} term pages; a term's own (Content &gt; Taxonomies, Details) come first, and for the meta description, so does the term's description. In the title and description, {'{term}'} is replaced by the term's name.</p>
+        <p className="mb-3 text-xs text-admin-muted">Defaults for {label.toLowerCase()} term pages; a term's own (Content &gt; Taxonomies, Details) come first, and for the meta description, so does the term's description. In the title and description, {'{term}'} is replaced by the term's name.</p>
       ) : (
-        <p className="mb-3 text-xs text-[#64748b]">For the {label.toLowerCase()} listing at {path}. The image is its share image and shows in a Featured image block on it (outside a collection).{name === 'event' ? ' The calendar views (month, day, past) keep their own titles and get the image and noindex.' : ''}</p>
+        <p className="mb-3 text-xs text-admin-muted">For the {label.toLowerCase()} listing at {path}. The image is its share image and shows in a Featured image block on it (outside a collection).{name === 'event' ? ' The calendar views (month, day, past) keep their own titles and get the image and noindex.' : ''}</p>
       )}
       <MediaPicker title="Featured image" url={value.image_url} onSelect={(m) => onChange({ ...value, image: m.id ?? m.mediaId ?? undefined, image_url: m.url })} />
       {!!value.image && (
@@ -412,17 +423,17 @@ function PageDefaults({ kind, name, label, path, value, onChange }: { kind: 'tax
         <textarea className={inputClass} rows={3} value={seo.description ?? ''} placeholder={kind === 'taxonomy' ? 'For terms without a description' : "The site's tagline when empty"} onChange={(e) => setSeo({ description: e.target.value })} />
       </Row>
       <div className="mb-3 flex items-center gap-3">
-        <button type="button" onClick={write} className="rounded-sm border border-[#1a1a2e]/20 bg-white px-3 py-1.5 text-xs font-semibold hover:border-[#1a1a2e]/50">
+        <button type="button" onClick={write} className="rounded-sm border border-admin-ink/20 bg-white px-3 py-1.5 text-xs font-semibold hover:border-admin-ink/50">
           Write with Claude
         </button>
         {writing && (
-          <span className="text-xs text-[#64748b]" role="status">
+          <span className="text-xs text-admin-muted" role="status">
             {writing}
           </span>
         )}
       </div>
       <Toggle title={kind === 'taxonomy' ? 'Hide its term pages from search engines (noindex)' : 'Hide from search engines (noindex)'} value={!!seo.noindex} onChange={(v) => setSeo({ noindex: v })} />
-      <p className="mt-3 text-xs text-[#64748b]">Changes are saved with Save settings.</p>
+      <p className="mt-3 text-xs text-admin-muted">Changes are saved with Save settings.</p>
       </div>
     </dialog>
     </>
@@ -436,7 +447,7 @@ function TaxonomyTemplatesPanel({ value, off, templates, meta, onChange, onPages
   return (
     <>
       <h3 className="mt-8 mb-1 text-sm font-semibold">Taxonomy pages</h3>
-      <p className="mb-3 text-xs text-[#64748b]">The template for each taxonomy's term pages; choose Off to turn them off. A term can choose its own template under Content &gt; Taxonomies, and the terms under it share it. With the pages off, terms still group and filter entries, shown without links.</p>
+      <p className="mb-3 text-xs text-admin-muted">The template for each taxonomy's term pages; choose Off to turn them off. A term can choose its own template under Content &gt; Taxonomies, and the terms under it share it. With the pages off, terms still group and filter entries, shown without links.</p>
       <table className="w-full text-sm">
         <tbody>
           {taxonomies.map((t) => {
@@ -445,10 +456,10 @@ function TaxonomyTemplatesPanel({ value, off, templates, meta, onChange, onPages
             const shown = chosen && have.has(chosen) ? chosen : fallback;
             return (
               <Fragment key={t.name}>
-              <tr className="border-t border-[#1a1a2e]/10 align-top">
+              <tr className="border-t border-admin-ink/10 align-top">
                 <th scope="row" className="py-3 pr-4 text-left font-medium">
                   {t.label}
-                  <span className="block text-xs font-normal text-[#64748b]">/{t.base}/&lt;slug&gt;/</span>
+                  <span className="block text-xs font-normal text-admin-muted">/{t.base}/&lt;slug&gt;/</span>
                 </th>
                 <td className="py-3">
                   <div className="flex items-center gap-2">
@@ -469,7 +480,7 @@ function TaxonomyTemplatesPanel({ value, off, templates, meta, onChange, onPages
                       <option value={OFF}>Off: no term pages</option>
                     </select>
                     {shown && !off.includes(t.name) && (
-                      <a className="shrink-0 text-xs text-[#b87333] hover:underline" href={`/admin/templates/template/${shown}/`}>
+                      <a className="shrink-0 text-xs text-admin-accent hover:underline" href={`/admin/templates/template/${shown}/`}>
                         Edit
                       </a>
                     )}
@@ -482,7 +493,7 @@ function TaxonomyTemplatesPanel({ value, off, templates, meta, onChange, onPages
                       }} />
                     )}
                   </div>
-                  <p className="mt-1 text-xs text-[#64748b]">{off.includes(t.name) ? 'Off: those addresses show a page with that address, if there is one, or Not found; terms still group and filter entries, shown without links.' : `At /${t.base}/<slug>/`}</p>
+                  <p className="mt-1 text-xs text-admin-muted">{off.includes(t.name) ? 'Off: those addresses show a page with that address, if there is one, or Not found; terms still group and filter entries, shown without links.' : `At /${t.base}/<slug>/`}</p>
                 </td>
               </tr>
               </Fragment>
@@ -490,6 +501,40 @@ function TaxonomyTemplatesPanel({ value, off, templates, meta, onChange, onPages
           })}
         </tbody>
       </table>
+    </>
+  );
+}
+
+/** The admin's colors: one picker each, with a warning when white text on it would be hard to read. */
+function AdminColors({ value, onChange }: { value: AdminTheme; onChange: (t: AdminTheme) => void }) {
+  return (
+    <>
+      <p className="mb-3 text-xs text-admin-muted">The colors of these admin screens and the page editor, for everyone who signs in. They change here as you pick them; Save keeps them.</p>
+      {ADMIN_THEME_FIELDS.map((f) => {
+        const color = value[f.key] ?? f.default;
+        const set = (c: string | undefined) => {
+          const next = { ...value };
+          if (c && c !== f.default) next[f.key] = c;
+          else delete next[f.key];
+          onChange(next);
+        };
+        return (
+          <FieldGroup key={f.key} title={f.label}>
+            <div className="flex items-center gap-2">
+              <input type="color" aria-label={f.label} value={color} onChange={(e) => set(e.target.value)} className="h-8 w-10 cursor-pointer rounded border border-admin-ink/15" />
+              <input aria-label={`${f.label} (hex)`} className="w-28 rounded border border-admin-ink/15 bg-white px-2 py-1.5 font-mono text-sm outline-none focus:border-admin-accent" defaultValue={color} key={color} onBlur={(e) => /^#[0-9a-f]{6}$/i.test(e.target.value.trim()) && set(e.target.value.trim().toLowerCase())} />
+              {value[f.key] && (
+                <button type="button" className="text-xs text-admin-muted hover:text-admin-accent" onClick={() => set(undefined)}>
+                  Default
+                </button>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-admin-muted">{f.help}</p>
+            {(f.key === 'accent' || f.key === 'ink') && contrast(color, '#ffffff') < 4.5 && <p className="mt-1 text-xs text-[#b3261e]">White text on this color is hard to read; choose a darker one.</p>}
+            {f.key === 'bg' && contrast(color, value.ink ?? '#1a1a2e') < 7 && <p className="mt-1 text-xs text-[#b3261e]">Text on this background is hard to read; choose a lighter one or a darker text color.</p>}
+          </FieldGroup>
+        );
+      })}
     </>
   );
 }

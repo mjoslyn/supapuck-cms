@@ -7,7 +7,7 @@ import { SEO_LIMITS, itemsText, seoOf, summary, type Seo } from '../lib/seo';
 import { site } from '../lib/site';
 
 function Count({ n, max }: { n: number; max: number }) {
-  return <span className={`ml-2 text-[11px] ${n > max ? 'text-[#b3261e]' : 'text-[#64748b]'}`}>{n}/{max}</span>;
+  return <span className={`ml-2 text-[11px] ${n > max ? 'text-[#b3261e]' : 'text-admin-muted'}`}>{n}/{max}</span>;
 }
 
 export function SeoForm({ type, title, excerpt, fields, path, pageItems, onChange }: {
@@ -51,18 +51,18 @@ export function SeoForm({ type, title, excerpt, fields, path, pageItems, onChang
         <textarea className={inputClass} rows={4} value={seo.description ?? ''} placeholder="From the excerpt when left empty" onChange={(e) => set({ description: e.target.value })} />
         <Count n={(seo.description ?? '').length} max={SEO_LIMITS.description} />
       </Row>
-      <button type="button" onClick={generate} className="mb-2 rounded-sm border border-[#1a1a2e]/20 px-3 py-1.5 text-xs font-semibold hover:border-[#1a1a2e]/50">
+      <button type="button" onClick={generate} className="mb-2 rounded-sm border border-admin-ink/20 px-3 py-1.5 text-xs font-semibold hover:border-admin-ink/50">
         Generate with Claude
       </button>
-      {status && <p className="mb-2 text-xs text-[#64748b]" role="status">{status}</p>}
-      {seo.generated && <p className="mb-2 text-xs text-[#64748b]">Written by Compose; it updates when Compose rebuilds the page until you edit it.</p>}
-      <div className="mb-3 rounded border border-[#1a1a2e]/10 bg-white p-3" aria-label="Search result preview">
+      {status && <p className="mb-2 text-xs text-admin-muted" role="status">{status}</p>}
+      {seo.generated && <p className="mb-2 text-xs text-admin-muted">Written by Compose; it updates when Compose rebuilds the page until you edit it.</p>}
+      <div className="mb-3 rounded border border-admin-ink/10 bg-white p-3" aria-label="Search result preview">
         <p className="truncate text-[11px] text-[#475569]">{path}</p>
         <p className="truncate text-sm text-[#1a0dab]">{shownTitle} – {site.name}</p>
         <p className="line-clamp-2 text-xs text-[#475569]">{shownDescription}</p>
       </div>
       <MediaPicker title="Share image" url={seo.image_url} onSelect={(m) => set({ image: m.id ?? m.mediaId ?? undefined, image_url: m.url })} />
-      <p className="-mt-2 mb-3 text-xs text-[#64748b]">Shown when the page is shared. The featured image, then the site's default, when empty.</p>
+      <p className="-mt-2 mb-3 text-xs text-admin-muted">Shown when the page is shared. The featured image, then the site's default, when empty.</p>
       {!!seo.image && (
         <button type="button" className="mb-3 text-xs text-[#b3261e]" onClick={() => set({ image: undefined, image_url: undefined })}>
           Remove share image

@@ -92,27 +92,27 @@ const decode = (s: string) => s.replace(/&#8217;/g, '’').replace(/&#038;|&amp;
 <Admin title={current.label}>
   <div class="flex items-end justify-between gap-6">
     <div>
-      <h1 class="font-[Fraunces,Georgia,serif] text-3xl font-normal">{current.label}</h1>
-      {!tagsView && <p class="mt-1 text-sm text-[#64748b]">{counts.get(type) ?? 0} total</p>}
+      <h1 class="text-3xl font-normal">{current.label}</h1>
+      {!tagsView && <p class="mt-1 text-sm text-admin-muted">{counts.get(type) ?? 0} total</p>}
     </div>
     {!tagsView && (
     <div class="flex items-center gap-2">
-    {COMPOSABLE_TYPES.some((c) => c.type === type) && <a href={`/admin/compose/?type=${type}`} class="rounded-sm border border-[#1a1a2e]/20 bg-white px-4 py-2 text-xs font-semibold tracking-wider uppercase hover:border-[#b87333] hover:text-[#b87333]">Compose</a>}
+    {COMPOSABLE_TYPES.some((c) => c.type === type) && <a href={`/admin/compose/?type=${type}`} class="rounded-sm border border-admin-ink/20 bg-white px-4 py-2 text-xs font-semibold tracking-wider uppercase hover:border-admin-accent hover:text-admin-accent">Compose</a>}
     <form method="post" action="/api/admin/entries">
       <input type="hidden" name="type" value={type} />
-      <button class="rounded-sm bg-[#1a1a2e] px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-[#b87333]">New {current.singular}</button>
+      <button class="rounded-sm bg-admin-ink px-4 py-2 text-xs font-semibold tracking-wider text-white uppercase hover:bg-admin-accent">New {current.singular}</button>
     </form>
     </div>
     )}
   </div>
 
-  <nav class="mt-6 flex flex-wrap gap-1 border-b border-[#1a1a2e]/10 text-sm">
+  <nav class="mt-6 flex flex-wrap gap-1 border-b border-admin-ink/10 text-sm">
     {CONTENT_TYPES.map((c) => (
-      <a href={`/admin/?type=${c.type}`} class:list={['-mb-px border-b-2 px-3 py-2', c.type === type ? 'border-[#b87333] text-[#1a1a2e]' : 'border-transparent text-[#64748b] hover:text-[#1a1a2e]']}>
-        {c.label} <span class="text-xs text-[#64748b]">{counts.get(c.type)}</span>
+      <a href={`/admin/?type=${c.type}`} class:list={['-mb-px border-b-2 px-3 py-2', c.type === type ? 'border-admin-accent text-admin-ink' : 'border-transparent text-admin-muted hover:text-admin-ink']}>
+        {c.label} <span class="text-xs text-admin-muted">{counts.get(c.type)}</span>
       </a>
     ))}
-    <a href="/admin/?type=terms" class:list={['-mb-px ml-auto border-b-2 px-3 py-2', tagsView ? 'border-[#b87333] text-[#1a1a2e]' : 'border-transparent text-[#64748b] hover:text-[#1a1a2e]']}>
+    <a href="/admin/?type=terms" class:list={['-mb-px ml-auto border-b-2 px-3 py-2', tagsView ? 'border-admin-accent text-admin-ink' : 'border-transparent text-admin-muted hover:text-admin-ink']}>
       Taxonomies
     </a>
   </nav>
@@ -122,33 +122,33 @@ const decode = (s: string) => s.replace(/&#8217;/g, '’').replace(/&#038;|&amp;
   ) : (
   <>
 
-  <nav class="mt-4 flex gap-1 border-b border-[#1a1a2e]/10 text-sm" aria-label="Status">
+  <nav class="mt-4 flex gap-1 border-b border-admin-ink/10 text-sm" aria-label="Status">
     {STATUS_TABS.map(([s, label]) => (
-      <a href={listUrl({ status: s === 'all' ? null : s, notice: null })} aria-current={s === status ? 'page' : undefined} class:list={['-mb-px border-b-2 px-3 py-2', s === status ? 'border-[#b87333] text-[#1a1a2e]' : 'border-transparent text-[#64748b] hover:text-[#1a1a2e]']}>
-        {label} <span class="text-xs text-[#64748b]">({s === 'all' ? (statusCounts.get('publish') ?? 0) + (statusCounts.get('draft') ?? 0) : (statusCounts.get(s) ?? 0)})</span>
+      <a href={listUrl({ status: s === 'all' ? null : s, notice: null })} aria-current={s === status ? 'page' : undefined} class:list={['-mb-px border-b-2 px-3 py-2', s === status ? 'border-admin-accent text-admin-ink' : 'border-transparent text-admin-muted hover:text-admin-ink']}>
+        {label} <span class="text-xs text-admin-muted">({s === 'all' ? (statusCounts.get('publish') ?? 0) + (statusCounts.get('draft') ?? 0) : (statusCounts.get(s) ?? 0)})</span>
       </a>
     ))}
   </nav>
-  {notice && <p class="mt-3 rounded bg-[#6db56d]/10 px-3 py-2 text-sm text-[#1a1a2e]" role="status">{notice}</p>}
+  {notice && <p class="mt-3 rounded bg-[#6db56d]/10 px-3 py-2 text-sm text-admin-ink" role="status">{notice}</p>}
 
   <form class="mt-4 flex gap-2 text-sm">
     <input type="hidden" name="type" value={type} />
     {status !== 'all' && <input type="hidden" name="status" value={status} />}
-    <input name="q" value={q} placeholder={`Search ${current.label.toLowerCase()}`} class="w-72 rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 outline-none focus:border-[#b87333]" />
+    <input name="q" value={q} placeholder={`Search ${current.label.toLowerCase()}`} class="w-72 rounded border border-admin-ink/15 bg-white px-3 py-1.5 outline-none focus:border-admin-accent" />
     {tags.length > 0 && (
-      <select name="tag" class="rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5">
+      <select name="tag" class="rounded border border-admin-ink/15 bg-white px-2 py-1.5">
         <option value="">All tags</option>
         {tags.map((t) => <option value={t.slug} selected={t.slug === tagSlug}>{decode(t.name)}</option>)}
       </select>
     )}
-    <button class="rounded border border-[#1a1a2e]/15 bg-white px-3 hover:border-[#b87333]">Filter</button>
-    {activeTag && <a href={listUrl({ tag: null })} class="self-center text-xs text-[#64748b] hover:text-[#b87333]">Clear tag “{decode(activeTag.name)}”</a>}
+    <button class="rounded border border-admin-ink/15 bg-white px-3 hover:border-admin-accent">Filter</button>
+    {activeTag && <a href={listUrl({ tag: null })} class="self-center text-xs text-admin-muted hover:text-admin-accent">Clear tag “{decode(activeTag.name)}”</a>}
   </form>
 
   <form id="bulk" method="post" action="/api/admin/entries/bulk" class="mt-4 flex items-center gap-2 text-sm" data-bulk>
     <input type="hidden" name="back" value={listUrl({ notice: null })} />
     <label class="sr-only" for="bulk-action">Bulk action</label>
-    <select id="bulk-action" name="action" class="rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5">
+    <select id="bulk-action" name="action" class="rounded border border-admin-ink/15 bg-white px-2 py-1.5">
       <option value="">Bulk actions</option>
       {trashView ? (
         <>
@@ -168,7 +168,7 @@ const decode = (s: string) => s.replace(/&#8217;/g, '’').replace(/&#038;|&amp;
     {termGroups.length > 0 && (
       <>
         <label class="sr-only" for="bulk-term">Term</label>
-        <select id="bulk-term" name="term" hidden class="rounded border border-[#1a1a2e]/15 bg-white px-2 py-1.5">
+        <select id="bulk-term" name="term" hidden class="rounded border border-admin-ink/15 bg-white px-2 py-1.5">
           <option value="">Choose a term</option>
           {termGroups.map((g) => (
             <optgroup label={g.label}>
@@ -178,8 +178,8 @@ const decode = (s: string) => s.replace(/&#8217;/g, '’').replace(/&#038;|&amp;
         </select>
       </>
     )}
-    <button class="rounded border border-[#1a1a2e]/15 bg-white px-3 py-1.5 hover:border-[#b87333] disabled:opacity-40" data-bulk-apply disabled>Apply</button>
-    <span class="text-xs text-[#64748b]" data-bulk-count></span>
+    <button class="rounded border border-admin-ink/15 bg-white px-3 py-1.5 hover:border-admin-accent disabled:opacity-40" data-bulk-apply disabled>Apply</button>
+    <span class="text-xs text-admin-muted" data-bulk-count></span>
   </form>
   <script>
     // Bulk actions: the header box selects every row; Apply needs a selection and an action, and
@@ -220,7 +220,7 @@ const decode = (s: string) => s.replace(/&#8217;/g, '’').replace(/&#038;|&amp;
   </script>
 
   <table class="mt-3 w-full border-collapse overflow-hidden rounded bg-white text-sm shadow-[0_0_0_1px_rgba(26,26,46,0.08)]">
-    <thead class="bg-[#f5f3f0] text-left text-xs tracking-wider text-[#64748b] uppercase">
+    <thead class="bg-admin-soft text-left text-xs tracking-wider text-admin-muted uppercase">
       <tr>
         <th class="w-8 py-2.5 pl-4"><input type="checkbox" data-bulk-all aria-label="Select all" /></th>
         <th class="px-4 py-2.5 font-semibold">Title</th>
@@ -232,36 +232,36 @@ const decode = (s: string) => s.replace(/&#8217;/g, '’').replace(/&#038;|&amp;
     </thead>
     <tbody>
       {(rows ?? []).map((r) => (
-        <tr class="border-t border-[#1a1a2e]/5 hover:bg-[#faf8f5]">
+        <tr class="border-t border-admin-ink/5 hover:bg-admin-bg">
           <td class="py-2.5 pl-4 align-top"><input type="checkbox" name="ids" value={r.id} form="bulk" aria-label={`Select ${decode(r.title_rendered ?? r.title) || 'untitled entry'}`} /></td>
           <td class="px-4 py-2.5">
-            <a href={`/admin/edit/${r.id}/`} class="font-medium hover:text-[#b87333]">{decode(r.title_rendered ?? r.title) || '(no title)'}</a>
-            <div class="text-xs text-[#64748b]">{record ? place(r.fields) : pageless ? '' : permalink(r)}</div>
+            <a href={`/admin/edit/${r.id}/`} class="font-medium hover:text-admin-accent">{decode(r.title_rendered ?? r.title) || '(no title)'}</a>
+            <div class="text-xs text-admin-muted">{record ? place(r.fields) : pageless ? '' : permalink(r)}</div>
           </td>
           {type !== 'global' && (
             <td class="px-4 py-2.5">
               <div class="flex flex-wrap gap-1">
-                {rowTags(r).map((t) => <a href={listUrl({ tag: t.slug })} class="rounded-full bg-[#f5f3f0] px-2 py-0.5 text-xs text-[#1a1a2e] hover:bg-[#b87333]/15">{decode(t.name)}</a>)}
+                {rowTags(r).map((t) => <a href={listUrl({ tag: t.slug })} class="rounded-full bg-admin-soft px-2 py-0.5 text-xs text-admin-ink hover:bg-admin-accent/15">{decode(t.name)}</a>)}
               </div>
             </td>
           )}
           <td class="px-4 py-2.5">
-            <span class:list={['rounded-full px-2 py-0.5 text-xs', r.status === 'publish' ? 'bg-[#6db56d]/15 text-[#3f7a3f]' : 'bg-[#64748b]/10 text-[#64748b]']}>{r.status === 'publish' ? 'Published' : r.status === 'draft' ? 'Draft' : r.status === 'trash' ? 'Trash' : r.status}</span>
-            {r.status === 'publish' && r.draft_saved_at && <div class="mt-1 text-[11px] text-[#b87333]">Unpublished changes</div>}
+            <span class:list={['rounded-full px-2 py-0.5 text-xs', r.status === 'publish' ? 'bg-[#6db56d]/15 text-[#3f7a3f]' : 'bg-admin-muted/10 text-admin-muted']}>{r.status === 'publish' ? 'Published' : r.status === 'draft' ? 'Draft' : r.status === 'trash' ? 'Trash' : r.status}</span>
+            {r.status === 'publish' && r.draft_saved_at && <div class="mt-1 text-[11px] text-admin-accent">Unpublished changes</div>}
           </td>
-          <td class="px-4 py-2.5 text-[#64748b]">{date(type === 'event' && r.event_start ? r.event_start : r.updated_at)}</td>
+          <td class="px-4 py-2.5 text-admin-muted">{date(type === 'event' && r.event_start ? r.event_start : r.updated_at)}</td>
           <td class="px-4 py-2.5 text-right whitespace-nowrap">
-            {r.status === 'publish' && !pageless && <a href={permalink(r)} target="_blank" class="text-xs text-[#64748b] hover:text-[#b87333]">View</a>}
+            {r.status === 'publish' && !pageless && <a href={permalink(r)} target="_blank" class="text-xs text-admin-muted hover:text-admin-accent">View</a>}
             {!trashView && (
               <form method="post" action="/api/admin/entries" class="ml-3 inline">
                 <input type="hidden" name="duplicate" value={r.id} />
-                <button class="text-xs text-[#64748b] hover:text-[#b87333]" aria-label={`Duplicate ${decode(r.title_rendered ?? r.title) || 'this entry'}`}>Duplicate</button>
+                <button class="text-xs text-admin-muted hover:text-admin-accent" aria-label={`Duplicate ${decode(r.title_rendered ?? r.title) || 'this entry'}`}>Duplicate</button>
               </form>
             )}
           </td>
         </tr>
       ))}
-      {!rows?.length && <tr><td colspan="6" class="px-4 py-10 text-center text-[#64748b]">{activeTag ? 'Nothing with this tag.' : trashView ? 'The trash is empty.' : 'Nothing here yet.'}</td></tr>}
+      {!rows?.length && <tr><td colspan="6" class="px-4 py-10 text-center text-admin-muted">{activeTag ? 'Nothing with this tag.' : trashView ? 'The trash is empty.' : 'Nothing here yet.'}</td></tr>}
     </tbody>
   </table>
   </>

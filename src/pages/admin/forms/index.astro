@@ -17,14 +17,14 @@ const when = (s: string) => new Date(s).toLocaleDateString('en-US', { timeZone: 
 <Admin title="Forms">
   <div class="flex items-end justify-between">
     <div>
-      <h1 class="font-[Fraunces,Georgia,serif] text-3xl font-normal">Forms</h1>
-      <p class="mt-1 text-sm text-[#64748b]">Build forms, then place them on pages with the Form block.</p>
+      <h1 class="text-3xl font-normal">Forms</h1>
+      <p class="mt-1 text-sm text-admin-muted">Build forms, then place them on pages with the Form block.</p>
     </div>
-    <button id="new-form" class="rounded bg-[#b87333] px-4 py-2 text-sm font-medium text-white hover:bg-[#9a5f2a]">New form</button>
+    <button id="new-form" class="rounded bg-admin-accent px-4 py-2 text-sm font-medium text-white hover:bg-admin-accent-dark">New form</button>
   </div>
   <div class="mt-6 overflow-hidden rounded bg-white shadow-[0_0_0_1px_rgba(26,26,46,0.08)]">
     <table class="w-full text-sm">
-      <thead class="border-b border-[#1a1a2e]/10 text-left text-xs text-[#64748b]">
+      <thead class="border-b border-admin-ink/10 text-left text-xs text-admin-muted">
         <tr>
           <th class="px-4 py-2 font-medium">Title</th>
           <th class="px-4 py-2 font-medium">Fields</th>
@@ -38,21 +38,21 @@ const when = (s: string) => new Date(s).toLocaleDateString('en-US', { timeZone: 
         {(forms ?? []).map((f) => {
           const c = counts.get(f.id);
           return (
-            <tr class="border-b border-[#1a1a2e]/5 last:border-0 hover:bg-[#faf8f5]">
+            <tr class="border-b border-admin-ink/5 last:border-0 hover:bg-admin-bg">
               <td class="px-4 py-3">
-                <a href={`/admin/forms/${f.id}/`} class="font-medium hover:text-[#b87333]">{f.title}</a>
+                <a href={`/admin/forms/${f.id}/`} class="font-medium hover:text-admin-accent">{f.title}</a>
               </td>
-              <td class="px-4 py-3 text-[#64748b]">{(f.definition?.fields ?? []).length}</td>
+              <td class="px-4 py-3 text-admin-muted">{(f.definition?.fields ?? []).length}</td>
               <td class="px-4 py-3">
-                <a href={`/admin/submissions/?form=${f.id}`} class="text-[#64748b] hover:text-[#b87333]">{c?.n ?? 0}</a>
+                <a href={`/admin/submissions/?form=${f.id}`} class="text-admin-muted hover:text-admin-accent">{c?.n ?? 0}</a>
               </td>
-              <td class="px-4 py-3 text-[#64748b]">{c ? when(c.last) : '-'}</td>
+              <td class="px-4 py-3 text-admin-muted">{c ? when(c.last) : '-'}</td>
               <td class="px-4 py-3">
-                <span class:list={['rounded px-2 py-0.5 text-xs', f.is_active ? 'bg-[#ecfdf5] text-[#047857]' : 'bg-[#f1f5f9] text-[#64748b]']}>{f.is_active ? 'Active' : 'Inactive'}</span>
+                <span class:list={['rounded px-2 py-0.5 text-xs', f.is_active ? 'bg-[#ecfdf5] text-[#047857]' : 'bg-[#f1f5f9] text-admin-muted']}>{f.is_active ? 'Active' : 'Inactive'}</span>
               </td>
               <td class="px-4 py-3 text-right whitespace-nowrap">
-                <a href={`/admin/forms/${f.id}/`} class="text-xs text-[#64748b] hover:text-[#b87333]">Edit</a>
-                <button data-duplicate={f.id} class="ml-3 text-xs text-[#64748b] hover:text-[#b87333]">Duplicate</button>
+                <a href={`/admin/forms/${f.id}/`} class="text-xs text-admin-muted hover:text-admin-accent">Edit</a>
+                <button data-duplicate={f.id} class="ml-3 text-xs text-admin-muted hover:text-admin-accent">Duplicate</button>
                 <button data-delete={f.id} data-title={f.title} data-count={c?.n ?? 0} class="ml-3 text-xs text-[#b91c1c] hover:underline">Delete</button>
               </td>
             </tr>
@@ -60,7 +60,7 @@ const when = (s: string) => new Date(s).toLocaleDateString('en-US', { timeZone: 
         })}
         {!forms?.length && (
           <tr>
-            <td colspan="6" class="px-4 py-10 text-center text-[#64748b]">No forms yet.</td>
+            <td colspan="6" class="px-4 py-10 text-center text-admin-muted">No forms yet.</td>
           </tr>
         )}
       </tbody>
