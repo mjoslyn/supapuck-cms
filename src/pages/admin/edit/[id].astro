@@ -31,7 +31,7 @@ const singular = typeLabel(row.type);
       <title>Edit · {site.name} admin</title>
     </head>
     <body class="h-screen overflow-hidden font-admin">
-      <Editor client:only="react" entryId={id} />
+      <Editor client:only="react" entryId={id} admin={Astro.locals.user.role === 'admin'} />
     </body>
   </html>
 )}
