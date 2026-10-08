@@ -12,12 +12,13 @@ import { Loader } from '../lib/data';
 import { permalink } from '../lib/permalink';
 import { mediaUrl } from '../lib/media/image';
 import { prepare } from '../render/prepare';
-import { renderItems } from '../render/engine';
+import { register, renderItems } from '../render/engine';
 import { templateCandidates, VENDOR_CSS } from '../render/page';
 import { hasContentBlock, type TemplateInfo } from '../lib/templates';
 import { MAIN_AREA, areaItems, areaProp, templateAreas, uniqueAreas } from '../lib/content/areas';
 import { collapseAll } from '../lib/content/linked-patterns';
 import { bodyClasses } from '../render/body-classes';
+import { esc } from '../render/html';
 import '../render/blocks';
 import type { Env, RenderCtx } from '../render/env';
 import type { PuckItem } from '../lib/puck/types';
@@ -35,6 +36,8 @@ import siteCss from '../styles/site.css?url';
 export interface EditorProps {
   entryId?: number;
   template?: { kind: 'template' | 'part' | 'pattern'; slug: string };
+  /** Admins get links from the template's blocks around the page's content to edit them (SourceLinks). */
+  admin?: boolean;
 }
 
 const CONTENT_MARKER = '<cms-content></cms-content>';
@@ -49,7 +52,7 @@ function emptyCtx(loader: Loader, queried: RenderCtx['queried'], settings: Recor
   return { loader, queried, settings, queries: new Map(), docs: new Map(), css: [], assets: new Set(), data: new Map(), scripts: [], rendered: [], editor: true };
 }
 
-export default function Editor({ entryId, template }: EditorProps) {
+export default function Editor({ entryId, template, admin = false }: EditorProps) {
   const db = browserClient();
   const [entry, setEntry] = useState<Entry | null>(null);
   const [state, setState] = useState<EntryState | null>(null);
@@ -453,7 +456,7 @@ export default function Editor({ entryId, template }: EditorProps) {
     <EnvContext.Provider value={env}>
       <RevisionsContext.Provider value={{ entryId: entry?.id ?? null, version: revisionsVersion, contentMode: mode === 'content' && !!entry, restore }}>
       <A11yMarksContext.Provider value={{ save: saveA11yMarks, quiet: () => (marksOnly.current = true) }}>
-      <ViewContext.Provider value={{ env, chrome, form: { type: entry?.type ?? '', state, setState: (v) => { stateRef.current = v; setState(v); setDirty(true); }, templates } }}>
+      <ViewContext.Provider value={{ env, chrome, sources: admin ? templateSlug : null, form: { type: entry?.type ?? '', state, setState: (v) => { stateRef.current = v; setState(v); setDirty(true); }, templates } }}>
       <Puck
         config={config}
         data={initial}
@@ -705,13 +708,15 @@ const readPinned = () => {
 interface ViewState {
   env: Env;
   chrome: PuckItem[];
+  /** The template's slug when the canvas marks where its blocks come from (admins), else null. */
+  sources: string | null;
   form: { type: string; state: EntryState | null; setState: (v: EntryState) => void; templates: TemplateInfo[] };
 }
 const ViewContext = createContext<ViewState | null>(null);
 
 function ChromeFromContext({ content, slots }: { content: ReactNode; slots?: Record<string, any> }) {
   const view = useContext(ViewContext);
-  return <Chrome env={view?.env ?? null} chrome={view?.chrome ?? []} content={content} slots={slots} />;
+  return <Chrome env={view?.env ?? null} chrome={view?.chrome ?? []} sources={view?.sources ?? null} content={content} slots={slots} />;
 }
 
 function EntryFormBridge() {
@@ -723,10 +728,11 @@ function EntryFormBridge() {
 }
 
 /** Template around the editable content, rendered statically (header, footer, template sections). */
-function Chrome({ env, chrome, content, slots }: { env: Env | null; chrome: PuckItem[]; content: ReactNode; slots?: Record<string, any> }) {
+function Chrome({ env, chrome, sources, content, slots }: { env: Env | null; chrome: PuckItem[]; sources: string | null; content: ReactNode; slots?: Record<string, any> }) {
+  const marked = useMemo(() => (sources !== null ? markSources(chrome, sources) : chrome), [chrome, sources]);
   if (!env) return null;
   if (!chrome.length) return <div className="c-page">{content}</div>;
-  const html = renderItems(chrome, { ...env, contentSlot: CONTENT_MARKER });
+  const html = renderItems(marked, { ...env, contentSlot: CONTENT_MARKER });
   const tree = parse(`<div class="c-page">${html}</div>`, {
     replace(node: DOMNode) {
       if (node instanceof Element && node.name === 'cms-content') {
@@ -739,7 +745,101 @@ function Chrome({ env, chrome, content, slots }: { env: Env | null; chrome: Puck
       return undefined;
     },
   });
-  return <>{tree}</>;
+  return (
+    <>
+      {tree}
+      {sources !== null && <SourceLinks />}
+    </>
+  );
+}
+
+type Source = { kind: 'template' | 'part' | 'pattern'; slug: string };
+const SOURCE_BLOCK = 'cms-source';
+const SOURCE_LABELS: Record<Source['kind'], string> = { template: 'template', part: 'template part', pattern: 'pattern' };
+
+/** Where a block of the template comes from: a part, a pattern, else the template itself (globals: no link). */
+function sourceOf(item: PuckItem, templateSlug: string): Source | null {
+  const slug = item.props.attrs?.slug;
+  if (item.type === 'part' && slug) return { kind: 'part', slug };
+  if ((item.type === 'pattern' || item.type === 'core/pattern') && slug) return { kind: 'pattern', slug };
+  if (item.type === 'global') return null;
+  return templateSlug ? { kind: 'template', slug: templateSlug } : null;
+}
+
+/** The template's blocks around the page's content, each wrapped in a SOURCE_BLOCK naming where it comes from. */
+function markSources(items: PuckItem[], templateSlug: string): PuckItem[] {
+  return items.map((item) => {
+    // A block holding the page's content isn't the template's alone: its other blocks are marked instead.
+    if (hasContentBlock([item])) return item.props.children ? { ...item, props: { ...item.props, children: markSources(item.props.children, templateSlug) } } : item;
+    const source = sourceOf(item, templateSlug);
+    return source ? { type: SOURCE_BLOCK, props: { id: `${item.props.id}-source`, attrs: source, children: [item] } } : item;
+  });
+}
+
+// Renders its block with the parent's env (so it renders as without the wrapper), its first element
+// tagged with the source (data-cms-source="<kind>:<slug>"). Only markSources adds these, in the canvas.
+register({
+  [SOURCE_BLOCK]: (b, env) =>
+    renderItems(b.children, env).replace(/<(?![/!?]|(?:script|style|link)\b)[a-zA-Z][\w-]*/, (tag) => `${tag} data-cms-source="${esc(`${b.attrs.kind}:${b.attrs.slug}`)}"`),
+});
+
+/** In the canvas, for admins: hovering a block from the template, a template part or a pattern outlines it, with a link to edit it there. */
+function SourceLinks() {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [hover, setHover] = useState<(Source & { rect: DOMRect }) | null>(null);
+  useEffect(() => {
+    const doc = ref.current?.ownerDocument;
+    const win = doc?.defaultView;
+    if (!doc || !win) return;
+    let el: HTMLElement | null = null;
+    const place = () => {
+      const [kind, ...slug] = (el?.dataset.cmsSource ?? '').split(':');
+      setHover(el && el.isConnected ? { kind: kind as Source['kind'], slug: slug.join(':'), rect: el.getBoundingClientRect() } : null);
+    };
+    const over = (e: Event) => {
+      const t = e.target as Element;
+      if (t.closest?.('.cms-source-link')) return;
+      const next = t.closest?.<HTMLElement>('[data-cms-source]') ?? null;
+      if (next !== el) {
+        el = next;
+        place();
+      }
+    };
+    const leave = () => {
+      el = null;
+      place();
+    };
+    doc.addEventListener('mouseover', over);
+    doc.documentElement.addEventListener('mouseleave', leave);
+    win.addEventListener('scroll', place, true);
+    win.addEventListener('resize', place);
+    return () => {
+      doc.removeEventListener('mouseover', over);
+      doc.documentElement.removeEventListener('mouseleave', leave);
+      win.removeEventListener('scroll', place, true);
+      win.removeEventListener('resize', place);
+    };
+  }, []);
+  const r = hover?.rect;
+  return (
+    <>
+      <span ref={ref} hidden />
+      {hover && r && (
+        <>
+          <div className="cms-source-outline" style={{ top: r.top, left: r.left, width: r.width, height: r.height }} />
+          <a
+            className="cms-source-link"
+            href={`/admin/templates/${hover.kind}/${hover.slug.split('/').map(encodeURIComponent).join('/')}/`}
+            target="_blank"
+            rel="noopener"
+            style={{ top: Math.max(r.top, 0) + 6, left: Math.min(r.right, ref.current?.ownerDocument.documentElement.clientWidth ?? r.right) - 6, transform: 'translateX(-100%)' }}
+          >
+            Edit {SOURCE_LABELS[hover.kind] ?? hover.kind}: {hover.slug}
+          </a>
+        </>
+      )}
+    </>
+  );
 }
 
 /** Load the public site's CSS into the canvas iframe (never into the admin UI). */
@@ -782,7 +882,7 @@ function CanvasStyles({ document: doc, ctx, children }: { document?: Document; c
     const style = doc.createElement('style');
     // Puck's drop zones fill their parent's height; a media-text column must keep its own so its text
     // position (align-self) shows as on the site.
-    style.textContent = '.cms-editor-note{padding:1rem;border:1px dashed #b87333;color:#64748b;font:13px system-ui}.c-media-text__content[data-puck-dropzone]{height:auto}.cms-area{position:relative}.cms-area__label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#64748b;font:13px system-ui;z-index:1}';
+    style.textContent = '.cms-editor-note{padding:1rem;border:1px dashed #b87333;color:#64748b;font:13px system-ui}.c-media-text__content[data-puck-dropzone]{height:auto}.cms-area{position:relative}.cms-area__label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#64748b;font:13px system-ui;z-index:1}.cms-source-outline{position:fixed;z-index:9998;pointer-events:none;outline:2px dashed #b87333;outline-offset:-2px}.cms-source-link{position:fixed;z-index:9999;padding:4px 10px;border-radius:4px;background:#0f0f1c;color:#fff;font:500 12px/1.4 system-ui;text-decoration:none;white-space:nowrap}.cms-source-link:hover,.cms-source-link:focus-visible{background:#b87333}';
     add(style);
     link(siteCss);
     // Layout rules for sections added or changed while editing are created during rendering.
@@ -803,9 +903,9 @@ function CanvasStyles({ document: doc, ctx, children }: { document?: Document; c
     syncCss();
     const sync = setInterval(syncCss, 300);
     link('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,300;1,9..144,400&family=Work+Sans:wght@300;400;500;600;700&display=swap');
-    // Links inside the canvas must not navigate the editor frame.
+    // Links inside the canvas must not navigate the editor frame (the edit links open a new tab).
     const stop = (e: Event) => {
-      if ((e.target as HTMLElement).closest?.('a')) e.preventDefault();
+      if ((e.target as HTMLElement).closest?.('a:not(.cms-source-link)')) e.preventDefault();
     };
     doc.addEventListener('click', stop, true);
 

@@ -445,7 +445,9 @@ has Blocks (and Patterns), Outline and an accessibility check (`A11yPanel.tsx`).
 marked as checked with a note; the marks live in the document's root props (`a11y`), save on their own as
 they are made (`PUT /api/admin/a11y`; not an unsaved edit), and lapse when the text or image they were about changes. Blocks with `types`
 are offered only on those entry types. Pages whose template has no `post-content` are edited in layout
-mode: the template document itself.
+mode: the template document itself. In content mode the template around the page's content shows as it
+will on the site; for admins, hovering one of its blocks, a template part or a pattern outlines it with a
+link to edit that template, part or pattern in a new tab (`markSources`, `SourceLinks`; globals get none).
 
 Admin colors and logo (Settings > Admin, `settings.site.admin_theme`, `src/lib/admin-theme.ts`): accent,
 text, menu bar and background, and a logo for the menu bar in place of the site name (or beside it,
