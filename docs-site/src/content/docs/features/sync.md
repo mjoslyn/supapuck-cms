@@ -71,7 +71,9 @@ up. Each lists that site's backups and snapshots, newest first, to download, res
 Before writing anything, a sync checks the target can take it (it isn't protected and has its
 migrations; without them the sync is refused). Then, with **Save a backup first** ticked (the default),
 it saves a backup on the target: every row the sync is about to overwrite, whole and as it is now, and a
-list of the rows it adds. If the backup can't be saved, nothing is synced.
+list of the rows it adds. If the backup can't be saved, nothing is synced. If a row the sync means to
+add now exists on the target (someone made it there since Compare), the sync stops and asks you to
+compare again. As each batch is written, the rows it really added are recorded beside the backup.
 
 ### Snapshots
 
@@ -93,14 +95,20 @@ belong to each site: syncing or restoring settings never changes them.
 ### Restoring
 
 - **A sync backup** undoes that sync on the site that holds it: the rows the sync overwrote go back to
-  how they were (entries with their terms and unpublished changes), and the rows it added are deleted.
+  how they were (entries with their terms and unpublished changes), and the rows it added are deleted:
+  only those it really wrote, so a sync that stopped halfway doesn't take later rows with it.
 - **A snapshot** writes every row it holds back as it was. The panel first shows, per table, how many
   rows it puts back and how many were made since; those are deleted only if you tick **Also delete the
   rows made since the snapshot**.
 
 Either way, changes made to those rows since are lost, and the current state is saved first (named
 `before-restore`), so a restore can be undone with the same button. Deleting a file deletes its library
-row only; its stored images stay, so undoing the restore brings the file back whole.
+row only; its stored images stay, so undoing the restore brings the file back whole. A form that has
+submissions is never deleted by a restore (its submissions would be cut loose from it); the report
+names the forms kept.
+
+A restore runs as a job (the background function `netlify/functions/restore-background.mts`, up to 15
+minutes), so a large one isn't cut off halfway; the screen waits for it and then shows the result.
 
 ## Protecting a site
 

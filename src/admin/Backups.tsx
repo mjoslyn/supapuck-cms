@@ -124,7 +124,16 @@ function Backups({ site, name }: { site: 'here' | 'remote'; name: string }) {
     setBusy(path);
     setStatus(`Restoring ${path}…`);
     try {
-      const r = await post({ action: 'restoreBackup', site, path, deleteSince });
+      const { job } = await post({ action: 'restoreBackup', site, path, deleteSince });
+      // The restore runs as a job (it can take minutes); ask until it reports.
+      let state: { status: string; result?: any; error?: string } = { status: 'queued' };
+      for (let i = 0; i < 480 && (state.status === 'queued' || state.status === 'running'); i++) {
+        if (i) await new Promise((r) => setTimeout(r, 2000));
+        const res = await fetch(`/api/admin/sync?restoreJob=${job}`);
+        if (res.ok) state = await res.json();
+      }
+      if (state.status !== 'done') throw new Error(state.error ?? 'it is still running after 16 minutes. Reload this page later to see whether a before-restore backup was saved.');
+      const r = state.result;
       setStatus(`Restored ${plural(r.restored, 'row')}${r.removed ? ` and deleted ${plural(r.removed, 'row')}` : ''}. The state before the restore is in ${r.backup}.${r.problems.length ? ` Problems: ${r.problems.join('; ')}` : ''}`);
       setRestoring(null);
       await load();

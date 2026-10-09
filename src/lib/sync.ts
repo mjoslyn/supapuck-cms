@@ -673,12 +673,23 @@ async function checkWritable(db: SupabaseClient, name: string): Promise<void> {
   if (error) throw new Error(`${capital(name)} can't take a sync yet: ${error.message}. Apply the migrations there first (npx supabase db push).`);
 }
 
-async function saveFile(db: SupabaseClient, path: string, body: unknown): Promise<void> {
+async function saveFile(db: SupabaseClient, path: string, body: unknown, upsert = false): Promise<void> {
   const { error: bucketError } = await db.storage.createBucket(BACKUP_BUCKET, { public: false });
   if (bucketError && !/exists|duplicate/i.test(bucketError.message)) throw new Error(`Could not make the backup bucket: ${bucketError.message}`);
-  const { error } = await db.storage.from(BACKUP_BUCKET).upload(path, new Blob([JSON.stringify(body, null, 1)], { type: 'application/json' }), { contentType: 'application/json', upsert: false });
+  const { error } = await db.storage.from(BACKUP_BUCKET).upload(path, new Blob([JSON.stringify(body, null, 1)], { type: 'application/json' }), { contentType: 'application/json', upsert });
   if (error) throw new Error(`Could not save the backup: ${error.message}`);
 }
+/** A small JSON file beside the backups (in a folder, so the backup list leaves it out), or null. */
+async function readFile(db: SupabaseClient, path: string): Promise<any | null> {
+  const { data } = await db.storage.from(BACKUP_BUCKET).download(path);
+  return data ? JSON.parse(await data.text()) : null;
+}
+// The keys a sync really added (group -> keys), kept beside its backup as the batches are written: a
+// restore deletes only these, not everything the plan meant to add (a sync can stop halfway, and the
+// ids it never reached then go to rows made by hand).
+const writtenPath = (backup: string) => `written/${backup}`;
+/** Which of these keys are rows on the target now. */
+const presentKeys = async (target: SupabaseClient, kind: string, keys: string[]) => backupKeys(kind, (await currentRows(target, kind, keys)) as Record<string, any[]>);
 const stamp = () => new Date().toISOString().replace(/[:.]/g, '-');
 
 async function saveRowsBackup(db: SupabaseClient, meta: { source: string; target: string; direction?: Direction }, items: { group: string; added: string[]; changed: string[] }[], label: string, spare?: string) {
@@ -700,10 +711,17 @@ async function saveRowsBackup(db: SupabaseClient, meta: { source: string; target
 export async function backup(direction: Direction, items: { group: string; added: string[]; changed: string[] }[], save = true): Promise<{ path: string | null; overwritten: number; added: number }> {
   const { target, sourceName, targetName } = endpoints(direction);
   await checkWritable(target, targetName);
+  // A row made on the target since Compare under a key the sync means to add would be overwritten, and
+  // the backup (which holds the rows the plan called changed) wouldn't have it.
+  for (const it of items) {
+    const there = await presentKeys(target, groupDef(it.group).kind, it.added);
+    if (there.length) throw new Error(`${capital(targetName)} changed since Compare: ${there.length} of the new rows in ${groupDef(it.group).label} now exist there (${there.slice(0, 5).join(', ')}). Compare again.`);
+  }
   const overwritten = items.reduce((n, it) => n + it.changed.length, 0);
   const added = items.reduce((n, it) => n + it.added.length, 0);
   if (!save) return { path: null, overwritten, added };
   const path = await saveRowsBackup(target, { source: sourceName, target: targetName, direction }, items, `from-${sourceName.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`);
+  await saveFile(target, writtenPath(path), {});
   return { path, overwritten, added };
 }
 
@@ -753,7 +771,7 @@ async function pruneBackups(db: SupabaseClient, spare?: string): Promise<string[
     .map((f) => f.path)
     .filter((p) => p !== spare);
   if (old.length) {
-    const { error } = await db.storage.from(BACKUP_BUCKET).remove(old);
+    const { error } = await db.storage.from(BACKUP_BUCKET).remove([...old, ...old.map(writtenPath)]);
     if (error) throw new Error(`Could not delete old backups: ${error.message}`);
   }
   return old;
@@ -786,7 +804,7 @@ const safeName = (path: string) => {
 /** Delete one backup or snapshot. */
 export async function deleteBackup(site: Site, path: string): Promise<void> {
   const { db } = siteClient(site);
-  const { error } = await db.storage.from(BACKUP_BUCKET).remove([safeName(path)]);
+  const { error } = await db.storage.from(BACKUP_BUCKET).remove([safeName(path), writtenPath(safeName(path))]);
   if (error) throw new Error(`Could not delete the backup: ${error.message}`);
 }
 
@@ -1065,9 +1083,15 @@ async function removeAdded(db: SupabaseClient, kind: string, keys: string[]): Pr
       // this restore would otherwise bring back rows without them.
       await del('media', 'id', ids);
       break;
-    case 'forms':
-      await del('forms', 'id', ids);
+    case 'forms': {
+      // Deleting a form detaches its submissions for good (backups don't hold them), so those forms stay.
+      const { data: used, error } = await db.from('form_submissions').select('form_id').in('form_id', ids);
+      if (error) return [`forms: ${error.message}`];
+      const keep = new Set((used ?? []).map((r) => r.form_id));
+      if (keep.size) problems.push(`Kept ${keep.size === 1 ? 'form' : 'forms'} ${[...keep].join(', ')}: ${keep.size === 1 ? 'it has' : 'they have'} submissions.`);
+      await del('forms', 'id', ids.filter((id) => !keep.has(id)));
       break;
+    }
     case 'templates':
       for (const key of keys) {
         const [k, ...rest] = key.split('/');
@@ -1097,9 +1121,15 @@ export async function restore(site: Site, path: string, opts: { deleteSince?: bo
   const file = JSON.parse(await (await backupFile(site, path)).text());
   if (file.kind === 'snapshot') return restoreSnapshot(db, name, file, path, !!opts.deleteSince);
   const groups = file.groups as Record<string, { added: string[]; overwritten: Record<string, any[]> }>;
+  // The rows the sync really added; a backup from before those were recorded has only the planned ones.
+  const { data: listed, error: listError } = await db.storage.from(BACKUP_BUCKET).list('written', { search: path });
+  if (listError) throw new Error(`Could not read the backup: ${listError.message}`);
+  const recorded = (listed ?? []).some((o) => o.name === path);
+  const written: Record<string, string[]> | null = recorded ? await readFile(db, writtenPath(path)) : null;
+  if (recorded && !written) throw new Error('Could not read which rows that sync added. Try again.');
   const plans = syncGroups()
     .filter((g) => groups?.[g.id])
-    .map((g) => ({ g, rows: groups[g.id].overwritten ?? {}, added: groups[g.id].added ?? [] }));
+    .map((g) => ({ g, rows: groups[g.id].overwritten ?? {}, added: (written ? written[g.id] : groups[g.id].added) ?? [] }));
   await checkWritable(db, name);
   // The current state of everything the restore changes or deletes, saved first.
   const saved = await saveRowsBackup(db, { source: name, target: name }, plans.map(({ g, rows, added }) => ({ group: g.id, added: [], changed: [...backupKeys(g.kind, rows), ...added] })), 'before-restore', path);
@@ -1122,6 +1152,44 @@ export async function restore(site: Site, path: string, opts: { deleteSince?: bo
   if (error) problems.push(`The id counters could not be moved on: ${error.message}`);
   return { restored, removed, problems, backup: saved };
 }
+
+// ---- restore jobs ---------------------------------------------------------------------------------
+//
+// A restore deletes rows and then writes thousands back, longer than a request may run; cut off
+// halfway it would leave the copy half restored. So it runs as a job: the API queues it and hands its
+// id to the background function (netlify/functions/restore-background.mts; astro dev runs it in the
+// request), and the screen polls. The job is a file in this site's backup bucket, named by an id only
+// the API and the signed-in admin's browser know.
+
+export type RestoreJob = { status: 'queued' | 'running' | 'done' | 'error'; site: Site; path: string; deleteSince: boolean; result?: Awaited<ReturnType<typeof restore>>; error?: string };
+const jobPath = (id: string) => {
+  if (!/^[a-f0-9]{32}$/.test(id)) throw new Error('Not a restore.');
+  return `jobs/${id}.json`;
+};
+
+export async function queueRestore(site: Site, path: string, deleteSince: boolean): Promise<string> {
+  const id = crypto.randomUUID().replace(/-/g, '');
+  await saveFile(serviceClient(), jobPath(id), { status: 'queued', site, path: safeName(path), deleteSince } satisfies RestoreJob);
+  return id;
+}
+
+/** Run a queued restore, once: a second call for the same job (a retried worker) does nothing. */
+export async function runRestore(id: string): Promise<RestoreJob | null> {
+  const db = serviceClient();
+  const job: RestoreJob | null = await readFile(db, jobPath(id));
+  if (job?.status !== 'queued') return null;
+  await saveFile(db, jobPath(id), { ...job, status: 'running' }, true);
+  let done: RestoreJob;
+  try {
+    done = { ...job, status: 'done', result: await restore(job.site, job.path, { deleteSince: job.deleteSince }) };
+  } catch (e) {
+    done = { ...job, status: 'error', error: (e as Error).message };
+  }
+  await saveFile(db, jobPath(id), done, true);
+  return done;
+}
+
+export const restoreJob = (id: string): Promise<RestoreJob | null> => readFile(serviceClient(), jobPath(id));
 
 // ---- entry points ---------------------------------------------------------------------------------
 
@@ -1147,11 +1215,19 @@ export async function plan(direction: Direction, groups: string[]): Promise<Sync
 }
 
 /** Write one batch of a group's rows (keys from a plan), checking each again. */
-export async function apply(direction: Direction, groups: string[], group: string, keys: string[]): Promise<{ written: number; skipped: SyncConflict[] }> {
+export async function apply(direction: Direction, groups: string[], group: string, keys: string[], backupPath?: string): Promise<{ written: number; skipped: SyncConflict[] }> {
   const { source, target, targetName } = endpoints(direction);
-  if (await isProtected(target)) throw new Error(`${targetName.replace(/^./, (c) => c.toUpperCase())} is protected from syncs.`);
+  if (await isProtected(target)) throw new Error(`${capital(targetName)} is protected from syncs.`);
   const g = groupDef(group);
+  const before = backupPath ? new Set(await presentKeys(target, g.kind, keys)) : null;
   const result = await APPLIERS[g.kind]({ source, target, chosen: new Set(groups) }, group, keys);
+  if (before && backupPath) {
+    const added = (await presentKeys(target, g.kind, keys)).filter((k) => !before.has(k));
+    if (added.length) {
+      const written = (await readFile(target, writtenPath(safeName(backupPath)))) ?? {};
+      await saveFile(target, writtenPath(safeName(backupPath)), { ...written, [group]: [...(written[group] ?? []), ...added] }, true);
+    }
+  }
   if (result.written && KEEPS_IDS.has(g.kind)) {
     const { error } = await target.rpc('sync_reset_ids');
     if (error) result.skipped.push({ key: '', label: '', reason: `Written, but the id counters could not be moved on: ${error.message}` });

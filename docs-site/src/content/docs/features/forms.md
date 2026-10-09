@@ -29,8 +29,10 @@ Submissions POST back to the page (`src/lib/forms/submit.ts`):
 
 1. Validation, skipping fields hidden by conditional logic
 2. A honeypot against spam
-3. Storage
-4. Notifications to the form's addresses, else `FORMS_ADMIN_EMAIL`, else the config's `adminEmail`
+3. Limits: an answer is cut at 10,000 characters (or the field's own maximum), and a form takes at
+   most 20 submissions a minute (more get a "try again in a minute" answer, status 429)
+4. Storage
+5. Notifications to the form's addresses, else `FORMS_ADMIN_EMAIL`, else the config's `adminEmail`
 
 ## Notification emails
 

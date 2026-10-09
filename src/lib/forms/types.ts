@@ -143,4 +143,6 @@ export interface FormResult {
   errors: Record<string, string>;
   values: Values;
   redirect?: string;
+  /** Refused: the form took too many submissions in the last minute. */
+  busy?: true;
 }

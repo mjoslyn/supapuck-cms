@@ -4,7 +4,7 @@ import { texturize } from '../text/formatting';
 import { trimWords, esc } from '../../render/html';
 import type { PuckItem } from '../puck/types';
 import { RECURRENCE_KEY, localToUtc, type Recurrence } from '../recurrence';
-import { SITE_TZ } from '../site';
+import { SITE_TZ, typesSharingAddresses } from '../site';
 
 /** Text content of a block tree (for automatic excerpts). */
 function text(items: PuckItem[]): string {
@@ -129,9 +129,9 @@ export async function setEntryTerms(db: SupabaseClient, entryId: number, taxonom
   }
 }
 
-/** A slug for an entry of a type, from `base`, not used by another entry of that type (base, base-2, ...). */
+/** A slug for an entry of a type, from `base`, not used by another entry at the same addresses (base, base-2, ...). */
 export async function uniqueSlug(db: SupabaseClient, type: string, base: string, exceptId?: number): Promise<string> {
-  let q = db.from('entries').select('slug').eq('type', type).like('slug', `${base}%`);
+  let q = db.from('entries').select('slug').in('type', typesSharingAddresses(type)).like('slug', `${base}%`);
   if (exceptId) q = q.neq('id', exceptId);
   const { data } = await q;
   const used = new Set((data ?? []).map((r) => r.slug));

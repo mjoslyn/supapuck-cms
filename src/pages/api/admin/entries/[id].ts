@@ -5,7 +5,7 @@ import { Loader } from '../../../../lib/data';
 import { permalink } from '../../../../lib/permalink';
 import { redirectMovedEntry } from '../../../../lib/redirects';
 import { uniqueAreas } from '../../../../lib/content/areas';
-import { taxonomiesOf } from '../../../../lib/site';
+import { taxonomiesOf, typeLabel, typesSharingAddresses } from '../../../../lib/site';
 
 /**
  * Save an entry. Body: { action, content?, entry?, template? }.
@@ -74,6 +74,12 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       featured_media_id: await mediaIdForUrl(db, e.featured_image),
     });
     if (current.type === 'event') Object.assign(patch, eventDates(e, patch.fields));
+  }
+  // A typed address another type already has at the same URL (a page and a post both live at /<slug>/).
+  const others = typesSharingAddresses(current.type).filter((t) => t !== current.type);
+  if (patch.slug && patch.slug !== current.slug && others.length) {
+    const { data: clash } = await db.from('entries').select('type, title').in('type', others).eq('slug', patch.slug).limit(1).maybeSingle();
+    if (clash) return new Response(`The address “${patch.slug}” is used by the ${typeLabel(clash.type).toLowerCase()} “${clash.title}”. Choose another.`, { status: 400 });
   }
   // A published entry's address before the save, for a redirect if it changes.
   const wasLive = current.status === 'publish' ? await new Loader(db).entryById(id, false) : null;

@@ -797,7 +797,7 @@ function SourceLinks() {
       setHover(el && el.isConnected ? { kind: kind as Source['kind'], slug: slug.join(':'), rect: el.getBoundingClientRect() } : null);
     };
     const over = (e: Event) => {
-      const t = e.target as Element;
+      const t = e.target as HTMLElement;
       if (t.closest?.('.cms-source-link')) return;
       const next = t.closest?.<HTMLElement>('[data-cms-source]') ?? null;
       if (next !== el) {

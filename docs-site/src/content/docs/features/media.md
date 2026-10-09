@@ -12,6 +12,9 @@ Uploads (`/api/admin/media`) are processed by `src/lib/media/process.ts` with sh
 - Images over 2560px get a `-scaled` copy, used as the full size.
 - The standard sizes are generated, hard crops centred on the focal point.
 - Every file gets AVIF and WebP copies next to it.
+- An SVG is stored as uploaded. It can carry script and `/media/` is served from the site's own
+  address, so every `/media/` answer carries `Content-Security-Policy: sandbox` and
+  `X-Content-Type-Options: nosniff`: a file opened on its own can't run script.
 
 ## Focal points
 

@@ -103,8 +103,10 @@ export class Loader {
     const cols = `${ENTRY_COLUMNS}${withContent ? ', content' : ''}, entry_terms(term_id, sort)`;
     let q = this.db.from('entries').select(cols).eq('slug', slug).eq('status', 'publish');
     q = Array.isArray(type) ? q.in('type', type) : q.eq('type', type);
-    const { data, error } = await q.limit(1).maybeSingle();
+    const { data: rows, error } = await q;
     if (error) throw error;
+    // Several types can hold the slug (older entries; saves now refuse it): the first type listed wins.
+    const data = Array.isArray(type) ? type.map((t) => (rows as any[]).find((r) => r.type === t)).find(Boolean) : (rows as any[])[0];
     if (!data) return null;
     this.remember([data]);
     return this.entries.get((data as any).id)!;

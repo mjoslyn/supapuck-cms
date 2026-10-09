@@ -60,6 +60,9 @@ export const fieldsFor = (type: string): FieldDef[] => typeDef(type)?.fields ?? 
 
 /** URL segment for single entries of a type (/directory/<slug>/). */
 export const TYPE_BASES: Record<string, string> = Object.fromEntries(config.types.filter((t) => t.base).map((t) => [t.type, t.base!]));
+/** The types whose entries share `type`'s addresses: every type without a URL base lives at /<slug>/. */
+export const typesSharingAddresses = (type: string): string[] =>
+  TYPE_BASES[type] || PAGELESS_TYPES.has(type) ? [type] : config.types.filter((t) => !t.base && !PAGELESS_TYPES.has(t.type)).map((t) => t.type);
 /** Listing page of a type. */
 export const ARCHIVE_PATHS: Record<string, string> = Object.fromEntries(config.types.filter((t) => t.archive).map((t) => [t.type, t.archive!]));
 /** URL base of a taxonomy's term pages. */

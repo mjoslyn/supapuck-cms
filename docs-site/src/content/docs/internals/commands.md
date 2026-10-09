@@ -35,7 +35,7 @@ npx supabase db query --linked          # run SQL against it
 ```sh
 npm run check                                       # typecheck
 npx tsx scripts/checks/recurrence.ts                # recurrence rules, DST, event date sync
-npx tsx scripts/checks/formatting.ts                # autop/texturize against data/formatting-corpus.json
+npx tsx scripts/checks/formatting.ts                # autop/texturize against scripts/checks/formatting-cases.json
 npx tsx --env-file=.env scripts/publishing-e2e.ts   # drafts, preview, publish
 ```
 

@@ -55,6 +55,7 @@ export const POST: APIRoute = async ({ url, request }) => {
   if (!/multipart\/form-data|application\/x-www-form-urlencoded/i.test(type)) return new Response('Not found', { status: 404 });
   const data = await request.formData();
   const form = await handleFormPost(data, request);
+  if (form?.busy) return new Response('This form is receiving too many submissions. Please go back and try again in a minute.', { status: 429, headers: { 'Retry-After': '60' } });
   if (form?.redirect) return Response.redirect(new URL(form.redirect, url), 303);
   const { status, html } = await renderRequest(url, supabase, form ?? undefined);
   return new Response(html, { status: form ? 200 : status, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });
