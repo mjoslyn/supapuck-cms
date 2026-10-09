@@ -8,14 +8,16 @@
 //   diff { direction, group, key }: one row on both copies;
 //   backup { direction, items: [{ group, added, changed }], save? }: check the target and (unless save
 //     is false) save a backup of what the sync overwrites (the screen does this first, and stops if it fails);
-//   apply { direction, groups, group, keys }: write one batch (the screen sends them in turn);
+//   apply { direction, groups, group, keys, backup? }: write one batch (the screen sends them in turn;
+//     `backup`, the backup's name, records the rows the batch added, for a restore to delete);
 //   snapshot { site }: back that copy up now (a snapshot of everything a sync covers);
 //   retention { site, keep?, schedule? }: how many backups and snapshots that copy keeps, and its
 //     snapshot schedule; older ones go now;
-//   deleteBackup { site, path }; restoreBackup { site, path, deleteSince? }.
+//   deleteBackup { site, path }; restoreBackup { site, path, deleteSince? }: starts the restore as a
+//     job and answers { job }; GET ?restoreJob=<job> is its status and, when done, its result.
 // Backups and snapshots hold rows, not stored images.
 import type { APIRoute } from 'astro';
-import { apply, backup, backupFile, backups, deleteBackup, diff, endpoints, isProtected, plan, remoteConfig, restore, setRetention, snapshotNow, snapshotPreview, syncGroups, type Direction, type Site } from '../../../lib/sync';
+import { apply, backup, backupFile, backups, deleteBackup, diff, endpoints, isProtected, plan, queueRestore, remoteConfig, restoreJob, runRestore, setRetention, snapshotNow, snapshotPreview, syncGroups, type Direction, type Site } from '../../../lib/sync';
 import { serviceClient } from '../../../lib/supabase';
 
 const direction = (v: unknown): Direction => (v === 'pull' ? 'pull' : 'push');
@@ -25,6 +27,8 @@ const fail = (e: unknown) => new Response((e as Error).message, { status: 400 })
 export const GET: APIRoute = async ({ url }) => {
   const remote = remoteConfig();
   try {
+    const job = url.searchParams.get('restoreJob');
+    if (job) return Response.json((await restoreJob(job)) ?? { status: 'error', error: 'That restore was not found.' }, { headers: { 'Cache-Control': 'private, no-store' } });
     const of = url.searchParams.get('backups');
     if (of) {
       const file = url.searchParams.get('file');
@@ -61,7 +65,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       case 'backup':
         return Response.json(await backup(direction(body.direction), (body.items ?? []).map((i: any) => ({ group: String(i.group), added: (i.added ?? []).map(String), changed: (i.changed ?? []).map(String) })), body.save !== false));
       case 'apply':
-        return Response.json(await apply(direction(body.direction), (body.groups ?? []).map(String), String(body.group), (body.keys ?? []).map(String)));
+        return Response.json(await apply(direction(body.direction), (body.groups ?? []).map(String), String(body.group), (body.keys ?? []).map(String), body.backup ? String(body.backup) : undefined));
       case 'snapshot':
         return Response.json(await snapshotNow(site(body.site)));
       case 'retention':
@@ -69,8 +73,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
       case 'deleteBackup':
         await deleteBackup(site(body.site), String(body.path));
         return Response.json({ ok: true });
-      case 'restoreBackup':
-        return Response.json(await restore(site(body.site), String(body.path), { deleteSince: !!body.deleteSince }));
+      case 'restoreBackup': {
+        const job = await queueRestore(site(body.site), String(body.path), !!body.deleteSince);
+        // The deploy's background function runs it (up to 15 minutes; it clears the page cache when
+        // done). Under astro dev, or if the worker can't be reached, it runs here before the answer.
+        let dispatched = false;
+        if (import.meta.env.PROD) {
+          const res = await fetch(new URL('/.netlify/functions/restore-background', request.url), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ job }) }).catch(() => null);
+          dispatched = !!res?.ok;
+        }
+        if (!dispatched) await runRestore(job);
+        return Response.json({ job }, { status: 202 });
+      }
     }
     return new Response('Unknown action.', { status: 400 });
   } catch (e) {

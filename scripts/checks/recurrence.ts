@@ -20,6 +20,8 @@ eq('monthly last Friday', occurrenceDates('2026-10-30', { freq: 'monthly', month
 eq('yearly Feb 29 skips non-leap', occurrenceDates('2028-02-29', { freq: 'yearly', count: 2 }, '2040-01-01'), ['2028-02-29', '2032-02-29']);
 eq('exclude + include', occurrenceDates('2026-10-01', { freq: 'weekly', count: 3, exclude: ['2026-10-08'], include: ['2026-10-10'] }, '2028-01-01'), ['2026-10-01', '2026-10-10', '2026-10-15']);
 eq('horizon caps open series', occurrenceDates('2026-10-01', { freq: 'monthly' }, '2026-12-31').length, 3);
+const long = occurrenceDates('2020-01-01', { freq: 'daily' }, '2028-10-09');
+eq('old open series still reaches the horizon', [long[long.length - 1], long[0] < '2026-10-09'], ['2028-10-09', true]);
 eq('DST: 7pm ET in Nov is 00:00Z next day', localToUtc('2026-11-05 19:00:00', 'America/New_York'), '2026-11-06T00:00:00.000Z');
 eq('DST: 7pm ET in Oct is 23:00Z', localToUtc('2026-10-29 19:00:00', 'America/New_York'), '2026-10-29T23:00:00.000Z');
 

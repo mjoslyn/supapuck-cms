@@ -22,7 +22,9 @@ export interface Recurrence {
 }
 
 export const RECURRENCE_KEY = 'recurrence';
-const MAX_OCCURRENCES = 730;
+// The newest occurrences up to the horizon are kept: a daily series has two years ahead (the default
+// horizon) and about a year behind.
+const MAX_OCCURRENCES = 1100;
 
 export function recurrenceOf(e: Pick<Entry, 'type' | 'fields'>): Recurrence | null {
   const r = e.type === 'event' ? e.fields?.[RECURRENCE_KEY] : null;
@@ -50,15 +52,18 @@ function nthWeekday(y: number, m: number, weekday: number, n: number): Date | nu
 export function occurrenceDates(firstDate: string, rule: Recurrence, horizon: string): string[] {
   const interval = Math.max(1, Math.floor(rule.interval ?? 1));
   const last = rule.until && rule.until < horizon ? rule.until : horizon;
-  const limit = Math.min(rule.count ?? MAX_OCCURRENCES, MAX_OCCURRENCES);
+  const limit = rule.count ?? Infinity;
   const start = toDate(firstDate);
   const out: string[] = [];
+  let made = 0;
   const push = (d: Date | null) => {
     if (!d) return true;
     const s = ymd(d);
     if (s < firstDate) return true;
-    if (s > last || out.length >= limit) return false;
+    if (s > last || made >= limit) return false;
+    made++;
     out.push(s);
+    if (out.length > MAX_OCCURRENCES) out.shift();
     return true;
   };
 
@@ -95,12 +100,17 @@ export function occurrenceDates(firstDate: string, rule: Recurrence, horizon: st
   return [...new Set([...out, ...extra])].filter((d) => !exclude.has(d)).sort();
 }
 
+// One formatter per timezone: making one is slow, and a series needs four conversions an occurrence.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+const formatterFor = (tz: string) =>
+  formatters.get(tz) ?? formatters.set(tz, new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })).get(tz)!;
+
 /** Wall-clock "Y-m-d H:i:s" in `tz` -> UTC ISO string. */
 export function localToUtc(local: string, tz: string): string {
   const guess = new Date(`${local.replace(' ', 'T')}Z`);
   const offset = (d: Date) => {
     const p = Object.fromEntries(
-      new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+      formatterFor(tz)
         .formatToParts(d)
         .map((x) => [x.type, x.value]),
     );

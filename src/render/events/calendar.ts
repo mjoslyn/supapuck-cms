@@ -107,6 +107,8 @@ export interface Calendar {
   title: string;
   prev?: { href: string; label: string };
   next?: { href: string; label: string };
+  /** A month or day before the first event or after the last: shown, but not for search engines. */
+  outside?: boolean;
   todayHref: string;
   todayLabel: string;
   body: string;
@@ -246,6 +248,17 @@ export function monthGrid(first: string, all: CalEvent[], today: string, q = '')
 
 export const monthLabel = (first: string) => fmtDay(first, { month: 'long', year: 'numeric' });
 
+/** The days the month and day views link between: the first event's to the last's, and today. Past
+ *  them there is nothing to show, and a crawler following "next" would never stop. */
+function span(all: CalEvent[], today: string): { lo: string; hi: string } {
+  let lo = today, hi = today;
+  for (const ev of all) {
+    if (ev.startDay < lo) lo = ev.startDay;
+    if (ev.endDay > hi) hi = ev.endDay;
+  }
+  return { lo, hi };
+}
+
 function monthView(req: CalRequest, all: CalEvent[], today: string): Calendar {
   const first = req.date || `${today.slice(0, 7)}-01`;
   const [y, m] = first.split('-').map(Number);
@@ -254,13 +267,15 @@ function monthView(req: CalRequest, all: CalEvent[], today: string): Calendar {
   const label = monthLabel(first);
   const prev = ym(y, m - 1);
   const next = ym(y, m + 1);
+  const { lo, hi } = span(all, today);
   return {
     req,
     today,
     heading: req.q ? `${label} · “${esc(req.q)}”` : label,
     title: `Events for ${label}`,
-    prev: { href: href(monthPath(prev), req.q), label: fmtDay(`${prev}-01`, { month: 'long' }) },
-    next: { href: href(monthPath(next), req.q), label: fmtDay(`${next}-01`, { month: 'long' }) },
+    prev: prev >= lo.slice(0, 7) ? { href: href(monthPath(prev), req.q), label: fmtDay(`${prev}-01`, { month: 'long' }) } : undefined,
+    next: next <= hi.slice(0, 7) ? { href: href(monthPath(next), req.q), label: fmtDay(`${next}-01`, { month: 'long' }) } : undefined,
+    outside: first.slice(0, 7) < lo.slice(0, 7) || first.slice(0, 7) > hi.slice(0, 7),
     todayHref: href('/events/month/', req.q),
     todayLabel: 'This month',
     body,
@@ -276,13 +291,15 @@ function dayView(req: CalRequest, all: CalEvent[], today: string): Calendar {
     .sort((a, b) => Number(b.allDay) - Number(a.allDay) || Number(b.multiday && b.startDay < day) - Number(a.multiday && a.startDay < day) || (a.start < b.start ? -1 : 1));
   const label = fmtDay(day, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   const nextEvent = all.find((ev) => ev.startDay > day);
+  const { lo, hi } = span(all, today);
   return {
     req,
     today,
     heading: req.q ? `${label} · “${esc(req.q)}”` : label,
     title: `Events for ${fmtDay(day, { month: 'long', day: 'numeric', year: 'numeric' })}`,
-    prev: { href: href(dayPath(addDays(day, -1)), req.q), label: fmtDay(addDays(day, -1), { month: 'short', day: 'numeric' }) },
-    next: { href: href(dayPath(addDays(day, 1)), req.q), label: fmtDay(addDays(day, 1), { month: 'short', day: 'numeric' }) },
+    prev: addDays(day, -1) >= lo ? { href: href(dayPath(addDays(day, -1)), req.q), label: fmtDay(addDays(day, -1), { month: 'short', day: 'numeric' }) } : undefined,
+    next: addDays(day, 1) <= hi ? { href: href(dayPath(addDays(day, 1)), req.q), label: fmtDay(addDays(day, 1), { month: 'short', day: 'numeric' }) } : undefined,
+    outside: day < lo || day > hi,
     todayHref: href('/events/today/', req.q),
     todayLabel: 'Today',
     body: events.length ? `<div class="c-cal__items">${events.map((ev) => eventCard(ev, { date: false })).join('')}</div>` : '',

@@ -126,6 +126,10 @@ Item, empty and pagination child blocks of older collections still render but ar
 A shuffled collection (`shuffle`) renders part of a pool of up to 48 entries and
 `public/assets/js/collection-shuffle.js` picks a new random set on each visit.
 
+Addresses: types without a URL `base` (pages and posts in the example site) all live at `/<slug>/`, so
+an address is unique across them (`typesSharingAddresses`, `uniqueSlug`; a typed address another of
+those types has is refused on save).
+
 Tags are terms of the `tag` taxonomy on any type: edited in each entry's settings (created on save,
 `setEntryTags`), filterable in collections (`query.taxQuery.tag`), listed at `/tag/<slug>/`.
 
@@ -220,7 +224,7 @@ the wildcard with the longest prefix (the `wildcard` column; in a PostgREST like
 changes gets one automatically (`redirectMovedEntry`, from the entries API).
 
 Addresses still not found are logged (`not_found`, via `not_found_hit`; files, admin and probes are
-left out) and listed on the screen with Add redirect. Saving a rule clears the entries it covers (for a
+left out; at most 5,000 addresses, those not seen for 30 days making room for new ones) and listed on the screen with Add redirect. Saving a rule clears the entries it covers (for a
 wildcard, every entry under its prefix, which can be many); the API returns the cleared paths, and
 reports a failed clear rather than hiding it.
 
@@ -249,7 +253,9 @@ the copy that has them set (production can't reach a local copy).
   `sync_reset_ids()` there: a copy without the migrations is refused before anything is written) and,
   unless **Save a backup first** (on by default) is unticked, saves a backup in the target's private
   `sync-backups` bucket: the rows the sync overwrites, whole and as they are, and the keys of the rows
-  it adds. If that fails, nothing is synced.
+  it adds. If that fails, nothing is synced. A key the sync means to add that now exists on the target
+  (a row made there since Compare) stops it: compare again. Each batch then records the rows it really
+  added beside the backup (`written/<backup name>`).
 - **Snapshots**: everything a sync covers on one copy (entries with their terms and unpublished
   changes, terms, media rows, templates, forms, settings `site` and `options`, redirects), in the same
   bucket as `<time>-snapshot-<trigger>.json`. Taken by **Back up now** (`snapshotNow`), before a
@@ -264,14 +270,19 @@ the copy that has them set (production can't reach a local copy).
   default 14; 0 keeps all; each copy's own, never synced or restored; older ones are deleted after
   each new one and when a number is lowered), and each backup to download, restore or delete.
 - **Restore** (`restore`): a sync's backup undoes that sync on the copy holding it (the rows it
-  overwrote go back, the rows it added are deleted); a snapshot puts every row it holds back
+  overwrote go back, the rows it really added are deleted: those recorded as written, so a sync that
+  stopped halfway doesn't take later rows with it); a snapshot puts every row it holds back
   (`snapshotPreview` counts them and the rows made since, which are deleted only with **Also delete**).
   Either way the current state is saved first (`before-restore`, never pruning the backup being
   restored), so a restore can be undone the same way, and the copy's own sync settings stay as they
   are. Rows to delete go first, so rows written back can't clash with them; rows are written 100 at a
   time (a failed batch is retried row by row, reporting only the rows that can't go back), and entries'
   terms and unpublished changes in bulk. Deleting a file deletes its media row only: its stored images
-  stay.
+  stay. A form with submissions is never deleted (they would be cut loose from it); the report names
+  it. A restore runs as a job, since it outlasts a request and must not be cut off halfway:
+  `restoreBackup` queues it (`queueRestore`, a file under `jobs/` in the bucket) and the background
+  function `netlify/functions/restore-background.mts` runs it once (`runRestore`; under `astro dev` the
+  request does) and clears the page cache; the screen polls `GET /api/admin/sync?restoreJob=<id>`.
 - A site with **Protect this site from syncs** on (`settings.site.sync_protected`, set on its own Sync
   tab) refuses every sync into it; settings syncs keep each copy's own protection.
 
@@ -279,7 +290,7 @@ the copy that has them set (production can't reach a local copy).
 
 `/search/?q=` lists the entries whose title, excerpt or body text (`entries.body_text`) contain every
 word, ranked by relevance (`Loader.queryRanked`: the phrase in the title, then words in title, excerpt,
-text; newest first on ties), in the types chosen under Settings > Search (`searchTypes`,
+text; newest first on ties; punctuation separates words; past 500 matches the newest 500 are ranked), in the types chosen under Settings > Search (`searchTypes`,
 `settings.site.search_types`; all types with a page by default). It renders the `search` template
 (migration 0021, `src/lib/content/search-template.ts`), else `index`; the page is noindex. The
 `search-form` block is a GET form to `/search/`. On any page with a `.c-search-form`, the page shell
@@ -321,7 +332,8 @@ fills its fields (those with a `compose` hint in the site config) from the mater
 `fields` (`src/lib/compose/entry-fields.ts`) when the entry is created, and later with `update_fields`
 (just the changed fields). The editor applies updates to its sidebar form (`LivePage.setFields`),
 saved with the page. `src/lib/compose/`: `materials.ts` keeps a registry with stable ids (image-1,
-doc-1...; PDFs in the private `compose` bucket, link text fetched once with private addresses refused,
+doc-1...; PDFs in the private `compose` bucket, link text fetched once with private addresses refused (`private-address.ts`, a subnet list that also
+reads IPv4 addresses written as IPv6; `scripts/checks/private-address.ts`),
 images re-encoded to JPEG for Claude); `claude.ts` sends the whole conversation (prompt-cached for an hour: the system prompt and the conversation up to the latest message; the page's current sections and fields follow the cache breakpoint) and
 Claude either replies or calls `build_page` with the complete page plan (`spec.ts`); `build.ts` turns
 the plan into components in the house style. Blocks built by a conversation carry its id prefix, so
@@ -339,7 +351,9 @@ POSTs `{ jobId, token }` to the background function `netlify/functions/compose-b
 (answers 202, runs up to 15 minutes); under `astro dev` the route runs the job in-process. The runner
 claims the job with its token and writes progress and the result or error to the row; the panel polls
 `GET /api/admin/compose?job=<id>`; a job silent for 3 minutes or older than 16 is reported as failed.
-One turn at a time per conversation (409 otherwise).
+One turn at a time per conversation (409 otherwise) and two per person (429). Only the latest message
+carries its selected block's JSON, and a block over 60,000 characters is refused (400) rather than cut.
+Text materials count toward the budget of what is sent in full (`MATERIAL_BUDGET.text`).
 
 ## How rendering works
 
@@ -360,7 +374,7 @@ One turn at a time per conversation (409 otherwise).
   provider; `src/lib/cache.ts`): fresh for 60s, then served stale for up to a week while they refresh,
   in Netlify's durable cache (shared by its edge servers), tagged `pages`. A successful admin write
   (POST, PUT, PATCH or DELETE under `/api/admin/`) clears that tag from the middleware
-  (`cache.invalidate`), so edits show at once; previews, Claude drafting, accessibility marks,
+  (`cache.invalidate`; a 2xx answer, or the 303 a form post such as a bulk action answers with), so edits show at once; previews, Claude drafting, accessibility marks,
   submissions, users and sync requests other than a sync into this copy or a restore don't
   (`changesPages`). A failed purge is logged and the edit shows within the minute. Under `astro dev`
   nothing is cached. The first cover or hero image on a page loads at high priority (`optimizeImages`).
@@ -371,7 +385,10 @@ One turn at a time per conversation (409 otherwise).
 
 Uploads (`/api/admin/media`) are processed by `src/lib/media/process.ts` (sharp): images over 2560px get
 a `-scaled` copy as the full size, the standard sizes are generated (hard crops centred on the focal
-point), and every file gets AVIF and WebP copies next to it. `media.focal_point` ({x, y} in 0..1) is set
+point), and every file gets AVIF and WebP copies next to it. An SVG is stored as uploaded. It can carry script and
+`/media/` is the site's own address, so every `/media/` answer carries `Content-Security-Policy:
+sandbox` and `X-Content-Type-Options: nosniff` (`MEDIA_HEADERS`; the edge function in production): a
+file opened on its own can't run script, and images in pages are unaffected. `media.focal_point` ({x, y} in 0..1) is set
 in the media library, with optional overrides per crop shape (`media.crop_focals`: square, 16:9, 4:3,
 3:4; `src/lib/media/focal.ts`). Changes re-crop the cropped sizes; the point for the nearest shape
 becomes `object-position` wherever the image is cropped to a ratio. Each shape can also use another
@@ -398,7 +415,8 @@ confirmation), notification settings in a column anon can't read. The markup com
 `src/render/forms/form.ts` (styles `src/styles/forms.css`; `public/assets/js/forms.js` runs conditional
 logic, US phone formatting and character counters; everything is validated on the server). Place forms
 with the `form` block. Submissions POST back to the page (`src/lib/forms/submit.ts`: validation that
-skips fields hidden by conditional logic, honeypot, storage, notifications to the form's addresses or
+skips fields hidden by conditional logic, honeypot, limits (an answer is cut at 10,000 characters, a
+form takes 20 submissions a minute, then answers 429), storage, notifications to the form's addresses or
 `FORMS_ADMIN_EMAIL` / the config's `adminEmail`). A notification's email is built in the email builder
 (`src/forms/EmailBuilder.tsx`, opened by Edit email): a Puck document (`Notification.design`) of email
 blocks (Heading, Text, Button, Image, Form field (one answer, or all as a table), Section, Two columns,
@@ -420,7 +438,8 @@ grid / list block for any page (`public/assets/js/event-calendar.js`) and `singl
 `/events/past/`, `/events/month/<Y-m>/`, `/events/day/<Y-m-d>/`, with `?q=` search and `?from=<Y-m-d>`.
 Feeds (`src/lib/events/ical.ts`): `/events.ics` (same `q`, `month`, `past` filters) and
 `/event/<slug>/[<Y-m-d>/]event.ics`; they describe `SITE_TZ` from the runtime's time zone data
-(`src/lib/events/timezone.ts`).
+(`src/lib/events/timezone.ts`) and are cached at the CDN like pages. The month and day views link no
+further than the first and last event (and today); a view outside that range is noindex.
 
 The site timezone (`SITE_TZ`) is set by admins under Settings (`settings.site.timezone`; the config's
 `timezone` is the default). It is a live binding in `src/lib/site`: the middleware and compose jobs
@@ -431,14 +450,16 @@ one with their local times kept (`moveEventsToTimezone`); events with their own 
 Recurrence (`src/lib/recurrence.ts`): an event's rule is stored in `fields.recurrence` and edited in
 the event sidebar. Occurrences are virtual entries (negative ids, own `event_start`/`start`/`end`) at
 `/event/<slug>/<Y-m-d>/`; `/event/<slug>/` redirects to the next one. `Loader.query` expands series
-only when a recurring event exists. Saving an event rewrites the `start`/`end` fields the views read.
+only when a recurring event exists (for an upcoming list, only series and events still to start are
+loaded). A series is expanded to the horizon (two years ahead); of a long
+one the newest 1,100 occurrences are kept. Saving an event rewrites the `start`/`end` fields the views read.
 
 ## Editor
 
 `/admin/` (Supabase Auth; `profiles.role`: editor, admin, or viewer = no access). Editors manage content,
 templates, media, forms and compose; site settings and users (`/admin/users/`: roles, invitations) are
-for admins (`ADMIN_ONLY` in `src/middleware.ts`; settings writes are admin-only in RLS via
-`is_admin()`). `src/puck/Editor.tsx` renders blocks through the same string renderer inside Puck
+for admins, as is the redirects API (`ADMIN_ONLY` in `src/middleware.ts`; settings writes are admin-only in RLS via
+`is_admin()`; the users API checks the role itself too, since invitations use the service key). `src/puck/Editor.tsx` renders blocks through the same string renderer inside Puck
 (`BlockView.tsx` parses HTML to React; slots become the block's inner wrapper element). The left rail
 has Blocks (and Patterns), Outline and an accessibility check (`A11yPanel.tsx`). Problems a person has to judge
 (warnings, and text over an image, which is always a problem since its contrast can't be measured) can be
@@ -464,7 +485,11 @@ unchanged; unpublished pages save in place as drafts. **Publish** / **Publish ch
 the header also offers Discard changes and Unpublish (`PUT /api/admin/entries/:id` with `action`).
 **Preview** opens `/admin/preview/<id>/` with the editor's current state (POST) or the saved draft
 (GET), rendered like the site with a preview bar and noindex. Templates and layout mode have no drafts:
-"Save & apply" changes every page using them.
+"Save & apply" changes every page using them. A save says which stored version it is based on (`base`,
+the `updated_at` the editor loaded; `templateBase` in layout mode): if someone else saved since, it is
+refused with 409 (`isStale`) and the editor asks before saving over their version. Each save and
+accessibility mark answers with the new `updated_at`. Tags and terms are linked new-first, then the
+others removed (`setLinks`), and a tag two saves create at once is made once.
 
 Record types (`record: true`, such as venues) are data only: `/admin/edit/<id>/` shows a plain form for
 them (`src/puck/RecordEditor.tsx`) with the entries that use them. An `entry` field (`EntryField` in
@@ -490,10 +515,17 @@ npx astro dev --background              # http://localhost:4321
 npx tsx --env-file=.env scripts/create-editor.ts you@example.org 'password' [editor|admin]   # a user
 npm run seed                            # starter templates, home page, sample event (skips what exists)
 npx tsx --env-file=.env scripts/migrate-content.ts [--dry-run]   # site then core content migrations
-npx tsx scripts/checks/formatting.ts    # autop/texturize against data/formatting-corpus.json (not in the repo)
+npx tsx scripts/checks/formatting.ts    # autop/texturize against scripts/checks/formatting-cases.json
 npx tsx scripts/checks/recurrence.ts    # recurrence rules, DST, event date sync
 npx tsx --env-file=.env scripts/media-formats.ts   # backfill AVIF/WebP for existing media
 ```
+
+`.github/workflows/check.yml` runs `npm run check`, the two checks above and `scripts/checks/private-address.ts` on every push and pull
+request.
+
+`scripts/safety-e2e.ts` (uploads, form limits, shared addresses, stale saves, tags, search, roles, restore as a job) and
+`scripts/sync-e2e.ts` (a sync stopped by a row made since Compare; undoing a half-finished sync; needs
+a second local stack as `SYNC_REMOTE_*`) use the running site without a browser and remove what they make.
 
 The e2e scripts (`scripts/*-e2e.ts`, `scripts/checks/compose.ts`) sign in as `LOCAL_ADMIN_EMAIL` /
 `LOCAL_ADMIN_PASSWORD` and were written against a site with content (pages, events, venues, members);

@@ -51,7 +51,10 @@ An event's rule is stored in `fields.recurrence` and edited in the event sidebar
 - Occurrences are virtual entries (negative ids, their own `event_start`, `start` and `end`) at
   `/event/<slug>/<Y-m-d>/`.
 - `/event/<slug>/` redirects to the next occurrence.
+- A series is expanded up to two years ahead; of a long one, the newest 1,100 occurrences are kept
+  (for a daily event, about a year back).
 - `Loader.query` expands series only when a recurring event exists.
+- The month and day views link no further than the first and last event; the feeds are cached like pages.
 - Saving an event rewrites the `start` and `end` fields the views read.
 
 ## Site timezone

@@ -4,7 +4,7 @@ import { texturize } from '../text/formatting';
 import { trimWords, esc } from '../../render/html';
 import type { PuckItem } from '../puck/types';
 import { RECURRENCE_KEY, localToUtc, type Recurrence } from '../recurrence';
-import { SITE_TZ } from '../site';
+import { SITE_TZ, typesSharingAddresses } from '../site';
 
 /** Text content of a block tree (for automatic excerpts). */
 function text(items: PuckItem[]): string {
@@ -92,46 +92,65 @@ export function eventDates(e: { event_start?: string | null; event_end?: string 
 const slugify = (s: string) =>
   s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 
+/** An entry's current links to terms of one taxonomy. */
+async function linkedTerms(db: SupabaseClient, entryId: number, taxonomy: string): Promise<number[]> {
+  const { data, error } = await db.from('entry_terms').select('term_id, terms!inner(taxonomy)').eq('entry_id', entryId).eq('terms.taxonomy', taxonomy);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.term_id);
+}
+
+/** Link an entry to exactly `links` within a taxonomy. The new links go in first and only then do the
+ *  others go, so a failure leaves the old links rather than none. */
+async function setLinks(db: SupabaseClient, entryId: number, taxonomy: string, links: { term_id: number; sort: number }[]) {
+  const before = await linkedTerms(db, entryId, taxonomy);
+  if (links.length) {
+    const { error } = await db.from('entry_terms').upsert(links.map((l) => ({ entry_id: entryId, ...l })), { onConflict: 'entry_id,term_id' });
+    if (error) throw error;
+  }
+  const wanted = new Set(links.map((l) => l.term_id));
+  const gone = before.filter((id) => !wanted.has(id));
+  if (gone.length) {
+    const { error } = await db.from('entry_terms').delete().eq('entry_id', entryId).in('term_id', gone);
+    if (error) throw error;
+  }
+}
+
 /** Set an entry's tags by name: missing tags are created, the entry's other terms are kept. */
 export async function setEntryTags(db: SupabaseClient, entryId: number, names: string[]) {
   const wanted = [...new Map(names.map((n) => n.trim()).filter(Boolean).map((n) => [slugify(n), n] as const)).entries()].filter(([slug]) => slug);
-  const { data: existing, error } = await db.from('terms').select('id, slug').eq('taxonomy', 'tag').in('slug', wanted.map(([slug]) => slug).concat(['']));
+  const slugs = wanted.map(([slug]) => slug);
+  const find = () => db.from('terms').select('id, slug').eq('taxonomy', 'tag').in('slug', slugs.concat(['']));
+  let { data: existing, error } = await find();
   if (error) throw error;
-  const ids = new Map((existing ?? []).map((t) => [t.slug, t.id]));
-  const missing = wanted.filter(([slug]) => !ids.has(slug)).map(([slug, name]) => ({ taxonomy: 'tag', slug, name, description: '', fields: {} }));
+  const have = new Set((existing ?? []).map((t) => t.slug));
+  const missing = wanted.filter(([slug]) => !have.has(slug)).map(([slug, name]) => ({ taxonomy: 'tag', slug, name, description: '', fields: {} }));
   if (missing.length) {
-    const { data: made, error: e2 } = await db.from('terms').insert(missing).select('id, slug');
+    // Two saves can make the same new tag at once: the second keeps the first's.
+    const { error: e2 } = await db.from('terms').upsert(missing, { onConflict: 'taxonomy,slug', ignoreDuplicates: true });
     if (e2) throw e2;
-    for (const t of made ?? []) ids.set(t.slug, t.id);
+    ({ data: existing, error } = await find());
+    if (error) throw error;
   }
-  const { data: allTags, error: e3 } = await db.from('terms').select('id').eq('taxonomy', 'tag');
-  if (e3) throw e3;
-  const { error: e4 } = await db.from('entry_terms').delete().eq('entry_id', entryId).in('term_id', (allTags ?? []).map((t) => t.id).concat([-1]));
-  if (e4) throw e4;
-  const links = wanted.map(([slug], sort) => ({ entry_id: entryId, term_id: ids.get(slug)!, sort: 100 + sort }));
-  if (links.length) {
-    const { error: e5 } = await db.from('entry_terms').insert(links);
-    if (e5) throw e5;
-  }
+  const ids = new Map((existing ?? []).map((t) => [t.slug, t.id]));
+  await setLinks(db, entryId, 'tag', slugs.filter((slug) => ids.has(slug)).map((slug, sort) => ({ term_id: ids.get(slug)!, sort: 100 + sort })));
 }
 
 /** Set an entry's terms of one taxonomy to `ids` (terms of other taxonomies stay), in the order given. */
 export async function setEntryTerms(db: SupabaseClient, entryId: number, taxonomy: string, ids: number[]) {
-  const { data: all, error } = await db.from('terms').select('id').eq('taxonomy', taxonomy);
+  const asked = [...new Set(ids.map(Number))];
+  const { data: real, error } = await db.from('terms').select('id').eq('taxonomy', taxonomy).in('id', asked.concat([-1]));
   if (error) throw error;
-  const known = new Set((all ?? []).map((t) => t.id));
-  const wanted = [...new Set(ids.map(Number))].filter((id) => known.has(id));
-  const { error: e1 } = await db.from('entry_terms').delete().eq('entry_id', entryId).in('term_id', [...known, -1]);
-  if (e1) throw e1;
-  if (wanted.length) {
-    const { error: e2 } = await db.from('entry_terms').insert(wanted.map((term_id, sort) => ({ entry_id: entryId, term_id, sort })));
-    if (e2) throw e2;
-  }
+  const known = new Set((real ?? []).map((t) => t.id));
+  await setLinks(db, entryId, taxonomy, asked.filter((id) => known.has(id)).map((term_id, sort) => ({ term_id, sort })));
 }
 
-/** A slug for an entry of a type, from `base`, not used by another entry of that type (base, base-2, ...). */
+/** Whether a save is based on an older version than the stored one (`base`: the updated_at the editor loaded). */
+export const isStale = (base: unknown, stored: string | null | undefined) => typeof base === 'string' && !!stored && Date.parse(base) !== Date.parse(stored);
+export const STALE = 'Someone else saved this since you opened it.';
+
+/** A slug for an entry of a type, from `base`, not used by another entry at the same addresses (base, base-2, ...). */
 export async function uniqueSlug(db: SupabaseClient, type: string, base: string, exceptId?: number): Promise<string> {
-  let q = db.from('entries').select('slug').eq('type', type).like('slug', `${base}%`);
+  let q = db.from('entries').select('slug').in('type', typesSharingAddresses(type)).like('slug', `${base}%`);
   if (exceptId) q = q.neq('id', exceptId);
   const { data } = await q;
   const used = new Set((data ?? []).map((r) => r.slug));

@@ -14,3 +14,6 @@ export function unsafeMediaPath(pathname: string): boolean {
   }
   return /(^|[/\\])\.\.([/\\]|$)/.test(p) || p.includes('\\') || /%(2e|5c|2f)/i.test(p);
 }
+
+/** Sent with every /media/ file: a stored file opened as a document (an SVG, say) can't run script on the site's address. */
+export const MEDIA_HEADERS = { 'Content-Security-Policy': 'sandbox', 'X-Content-Type-Options': 'nosniff' };

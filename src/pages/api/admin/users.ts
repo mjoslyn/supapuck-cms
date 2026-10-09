@@ -6,6 +6,8 @@ import { serviceClient } from '../../../lib/supabase';
 const ROLES = ['viewer', 'editor', 'admin'];
 
 export const POST: APIRoute = async ({ request, locals, redirect, url }) => {
+  // Checked here as well as in the middleware: inviting uses the service key, which no database rule guards.
+  if (locals.user?.role !== 'admin') return new Response('Admins only', { status: 403 });
   const form = await request.formData();
   const action = String(form.get('action') ?? '');
   const role = String(form.get('role') ?? '');

@@ -6,7 +6,7 @@ import { refreshSiteTimezone } from './lib/site/timezone';
 import { changesPages, PAGE_CACHE_TAG } from './lib/cache';
 
 const PUBLIC_ADMIN = ['/admin/login/', '/admin/set-password/', '/api/auth/login', '/api/auth/logout'];
-const ADMIN_ONLY = ['/admin/settings', '/admin/users', '/api/admin/settings', '/api/admin/sync', '/api/admin/users'];
+const ADMIN_ONLY = ['/admin/settings', '/admin/users', '/api/admin/redirects', '/api/admin/settings', '/api/admin/sync', '/api/admin/users'];
 
 export const onRequest = defineMiddleware(async (context, next) => {
   await refreshSiteTimezone();
@@ -35,7 +35,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const { method } = context.request;
   const syncAction = pathname.startsWith('/api/admin/sync') && method === 'POST' ? (await context.request.clone().json().catch(() => ({})))?.action : undefined;
   const response = await next();
-  if (response.ok && changesPages(method, pathname, syncAction) && context.cache.enabled) {
+  if ((response.ok || response.status === 303) && changesPages(method, pathname, syncAction) && context.cache.enabled) {
+    // 303: form posts (bulk actions, terms) answer with a redirect back to the list.
     // A failed purge is logged, not the edit's failure: the pages refresh within the minute anyway.
     await context.cache.invalidate({ tags: [PAGE_CACHE_TAG] }).catch((e: Error) => console.error(`page cache purge failed: ${e.message}`));
   }

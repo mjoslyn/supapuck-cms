@@ -112,7 +112,7 @@ export default function Sync() {
         const size = BATCH[kind] ?? 50;
         for (let i = 0; i < keys.length; i += size) {
           setBusy(`${g.label}: ${Math.min(i + size, keys.length)} of ${keys.length}`);
-          const r = await post({ action: 'apply', direction, groups: [...chosen], group: g.id, keys: keys.slice(i, i + size) });
+          const r = await post({ action: 'apply', direction, groups: [...chosen], group: g.id, keys: keys.slice(i, i + size), backup: saved.path ?? undefined });
           written.n += r.written;
           skipped.push(...r.skipped.map((s: SyncConflict) => ({ ...s, group: g.label })));
         }

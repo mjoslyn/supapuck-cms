@@ -87,6 +87,7 @@ export default function Editor({ entryId, template, admin = false }: EditorProps
 
       if (template) {
         const doc = await loader.template(template.kind, template.slug);
+        baseRef.current = (await db.from('templates').select('updated_at').eq('kind', template.kind).eq('slug', template.slug).maybeSingle()).data?.updated_at;
         const raw = (doc as Data) ?? { root: { props: {} }, content: [] };
         const data = { ...raw, content: (await inlinePatterns(raw.content as PuckItem[], loader)) as Data['content'] };
         setMode('layout');
@@ -99,6 +100,7 @@ export default function Editor({ entryId, template, admin = false }: EditorProps
 
       const e = await loader.entryById(entryId!, true);
       if (!e) throw new Error('Entry not found');
+      baseRef.current = e.updated_at;
       await loader.loadMedia(e.featured_media_id ? [e.featured_media_id] : []);
       await loader.allTerms();
       const queried = { kind: 'singular' as const, entry: e, page: 1, url: new URL(settings.site?.front_page_id === e.id ? '/' : permalink(e), location.origin), isFront: settings.site?.front_page_id === e.id };
@@ -156,6 +158,7 @@ export default function Editor({ entryId, template, admin = false }: EditorProps
       } else {
         setMode('layout');
         setChrome([]);
+        if (slug) tplBaseRef.current = (await db.from('templates').select('updated_at').eq('kind', 'template').eq('slug', slug).maybeSingle()).data?.updated_at;
         const data = { root: { props: {} }, content: await inlinePatterns(tplItems, loader) } as Data;
         setInitial(data);
         dataRef.current = data;
@@ -376,10 +379,18 @@ export default function Editor({ entryId, template, admin = false }: EditorProps
 
   /** Accessibility marks, saved as they are made: on the template being edited, else on the entry. */
   const marksOnly = useRef(false);
+  // The stored version this editor is working from (updated_at): the entry's, or the template's when
+  // editing one; and in layout mode the template's as well. Sent with a save, which is refused if
+  // someone else saved in between.
+  const baseRef = useRef<string | undefined>(undefined);
+  const tplBaseRef = useRef<string | undefined>(undefined);
   const saveA11yMarks = async (marks: Record<string, unknown>): Promise<string | null> => {
     const target = template ? { kind: template.kind, slug: template.slug } : mode === 'layout' ? { kind: 'template', slug: templateSlug } : { entryId };
     const res = await fetch('/api/admin/a11y', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...target, marks }) }).catch(() => null);
-    return res?.ok ? null : res ? await res.text() : 'no connection';
+    if (!res?.ok) return res ? await res.text() : 'no connection';
+    const { updated_at } = await res.json().catch(() => ({}));
+    if (updated_at) (!template && mode === 'layout' ? tplBaseRef : baseRef).current = updated_at;
+    return null;
   };
 
   /** save: templates and layout mode (apply at once); draft / publish / unpublish / discard: pages. */
@@ -407,14 +418,20 @@ export default function Editor({ entryId, template, admin = false }: EditorProps
         ? action === 'discard' || action === 'unpublish' ? { action } : { action, content: stored, entry: stateRef.current, ...restoredNote(stored) }
         : { action: 'save', entry: stateRef.current, template: { kind: 'template', slug: templateSlug, content: stored } };
     const url = template ? '/api/admin/templates' : `/api/admin/entries/${entryId}`;
-    const res = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const put = (bases: object) => fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, ...bases }) });
+    let res = await put({ base: baseRef.current, templateBase: tplBaseRef.current });
+    // Someone else saved it meanwhile: say so, and overwrite only if asked.
+    if (res.status === 409 && window.confirm(`${await res.text()}\n\nSaving now replaces their version with yours. To see theirs first, cancel and reload the page (your unsaved changes here will be lost).\n\nSave anyway?`)) res = await put({});
     setSaving(false);
+    if (res.status === 409) return setStatus('Not saved: someone else saved this since you opened it.');
     if (!res.ok) return setStatus(`Not saved: ${await res.text()}`);
     if (action === 'discard') return location.reload();
     const r = await res.json().catch(() => ({}));
     const nowData = (puckRef.current?.().appState.data as Data | undefined) ?? dataRef.current!;
     const changedSince = docJson(nowData) !== sentContent || JSON.stringify(stateRef.current) !== sentEntry;
     if (r.status) setLiveStatus(r.status);
+    if (r.updated_at) baseRef.current = r.updated_at;
+    if (r.templateUpdatedAt) tplBaseRef.current = r.templateUpdatedAt;
     // The address the server stored (a placeholder or empty one becomes one from the title).
     if (r.slug && stateRef.current && r.slug !== stateRef.current.slug) {
       const next = { ...stateRef.current, slug: r.slug };
@@ -432,7 +449,8 @@ export default function Editor({ entryId, template, admin = false }: EditorProps
     restoredRef.current = null;
     setRevisionsVersion((v) => v + 1);
     const time = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    const note = detached ? ` ${detached === 1 ? 'A linked pattern whose blocks were changed was' : `${detached} linked patterns whose blocks were changed were`} saved as an ordinary copy.` : '';
+    const warned = r.warning ? ` ${r.warning}` : '';
+    const note = warned + (detached ? ` ${detached === 1 ? 'A linked pattern whose blocks were changed was' : `${detached} linked patterns whose blocks were changed were`} saved as an ordinary copy.` : '');
     setStatus((action === 'publish' ? `Published ${time}` : action === 'unpublish' ? `Unpublished ${time}` : action === 'draft' ? `Draft saved ${time}` : `Saved ${time}`) + note);
   };
 
@@ -797,7 +815,7 @@ function SourceLinks() {
       setHover(el && el.isConnected ? { kind: kind as Source['kind'], slug: slug.join(':'), rect: el.getBoundingClientRect() } : null);
     };
     const over = (e: Event) => {
-      const t = e.target as Element;
+      const t = e.target as HTMLElement;
       if (t.closest?.('.cms-source-link')) return;
       const next = t.closest?.<HTMLElement>('[data-cms-source]') ?? null;
       if (next !== el) {

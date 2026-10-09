@@ -15,6 +15,8 @@ export const GET: APIRoute = async ({ url, request, cache }) => {
   if (moved) return Response.redirect(new URL(`${moved}${url.search}`, url), 301);
   // Calendar feeds: all events, or one event (or occurrence).
   if (url.pathname === '/events.ics') {
+    // Cached like pages: calendar apps poll feeds, and each build loads every event.
+    if (cache.enabled) cache.set(PAGE_CACHE);
     return eventsFeed(new Loader(supabase), { q: url.searchParams.get('q') ?? '', month: url.searchParams.get('month') ?? '', past: url.searchParams.has('past') }, url.origin);
   }
   const single = url.pathname.match(/^\/event\/([^/]+)\/(?:(\d{4}-\d{2}-\d{2})\/)?event\.ics$/);
@@ -22,6 +24,7 @@ export const GET: APIRoute = async ({ url, request, cache }) => {
     const loader = new Loader(supabase);
     const entry = await loader.entry('event', single[1], false);
     const res = entry && (await eventFile(loader, entry.id, single[2], url.origin));
+    if (res && cache.enabled) cache.set(PAGE_CACHE);
     return res || new Response('Not found', { status: 404 });
   }
   // Pages end in a slash.
@@ -55,6 +58,7 @@ export const POST: APIRoute = async ({ url, request }) => {
   if (!/multipart\/form-data|application\/x-www-form-urlencoded/i.test(type)) return new Response('Not found', { status: 404 });
   const data = await request.formData();
   const form = await handleFormPost(data, request);
+  if (form?.busy) return new Response('This form is receiving too many submissions. Please go back and try again in a minute.', { status: 429, headers: { 'Retry-After': '60' } });
   if (form?.redirect) return Response.redirect(new URL(form.redirect, url), 303);
   const { status, html } = await renderRequest(url, supabase, form ?? undefined);
   return new Response(html, { status: form ? 200 : status, headers: { 'Content-Type': 'text/html; charset=UTF-8' } });

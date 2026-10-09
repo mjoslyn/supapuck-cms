@@ -15,6 +15,7 @@ import { downsize, mediaUrl } from '../media/image';
 import { MediaStore } from '../media/process';
 import { videoIframe, videoLink as parseVideoLink } from '../media/video-link';
 import type { BuildMaterials, ImageMaterial, VideoMaterial } from './build';
+import { privateAddress } from './private-address';
 
 type Block = Anthropic.Messages.ContentBlockParam;
 
@@ -22,16 +23,6 @@ type Block = Anthropic.Messages.ContentBlockParam;
 const MAX_DOC = 25 * 1024 * 1024;
 const MAX_TEXT = 60_000;
 const MAX_LINK_TEXT = 12_000;
-
-/** Private, loopback and link-local addresses are not fetched (the server must not probe its own network). */
-function privateAddress(ip: string): boolean {
-  if (isIP(ip) === 6) {
-    const v = ip.toLowerCase();
-    return v === '::1' || v === '::' || v.startsWith('fc') || v.startsWith('fd') || v.startsWith('fe80') || v.startsWith('::ffff:') && privateAddress(v.slice(7));
-  }
-  const [a, b] = ip.split('.').map(Number);
-  return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
-}
 
 /**
  * A connection pinned to an address already checked: fetch would look the name up again, and a
@@ -108,7 +99,7 @@ function htmlToText(html: string): { title: string; description: string; text: s
   root.querySelectorAll('script, style, noscript, svg, nav, footer, header, form, iframe').forEach((n) => n.remove());
   const main = root.querySelector('main') ?? root.querySelector('article') ?? root.querySelector('body') ?? root;
   main.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, br, div, tr').forEach((n) => n.insertAdjacentHTML('afterend', '\n'));
-  return { title: collapse(title), description: collapse(description), text: collapse(main.text).slice(0, MAX_LINK_TEXT) };
+  return { title: collapse(title).slice(0, 300), description: collapse(description).slice(0, 1000), text: collapse(main.text).slice(0, MAX_LINK_TEXT) };
 }
 
 /** YouTube / Vimeo link -> embed material, with its title from oEmbed when available. */

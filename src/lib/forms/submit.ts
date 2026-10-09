@@ -13,6 +13,11 @@ import { SITE_TZ, site } from '../site';
 const env = (k: string) => (import.meta.env?.[k] as string | undefined) ?? process.env[k];
 const REQUIRED = 'This field is required.';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Limits no real answer reaches: an answer's length, and one form's submissions in a minute (all
+// visitors together; a flood would otherwise fill the table and the notification inboxes).
+const MAX_ANSWER = 10_000;
+const MAX_PER_MINUTE = 20;
+const answer = (v: unknown, max = MAX_ANSWER) => String(v ?? '').trim().slice(0, max);
 
 /** Posted values: "f1", "f1[]" (checkboxes), "f1[first]" (name parts). */
 function collect(data: FormData, def: FormDef): Values {
@@ -20,18 +25,18 @@ function collect(data: FormData, def: FormDef): Values {
   for (const f of def.fields) {
     if (!INPUT_TYPES.includes(f.type)) continue;
     if (f.type === 'checkbox') {
-      const list = data.getAll(`${f.id}[]`).map(String).map((s) => s.trim()).filter(Boolean);
+      const list = data.getAll(`${f.id}[]`).slice(0, 200).map((s) => answer(s)).filter(Boolean);
       if (list.length) values[f.id] = list;
     } else if (f.type === 'name') {
       const parts: Partial<Record<NamePart, string>> = {};
       for (const p of visibleNameParts(f)) {
-        const v = String(data.get(`${f.id}[${p}]`) ?? '').trim();
+        const v = answer(data.get(`${f.id}[${p}]`));
         if (v) parts[p] = v;
       }
       if (Object.keys(parts).length) values[f.id] = parts;
     } else {
-      const v = String(data.get(f.id) ?? '').trim();
-      if (v) values[f.id] = f.maxLength ? v.slice(0, f.maxLength) : v;
+      const v = answer(data.get(f.id), f.maxLength || MAX_ANSWER);
+      if (v) values[f.id] = v;
     }
   }
   return values;
@@ -197,11 +202,14 @@ export async function handleFormPost(data: FormData, request: Request): Promise<
     const f = def.fields.find((x) => x.id === id);
     return f && !isFieldHidden(def, f, values);
   }));
+  const { count, error: countError } = await db.from('form_submissions').select('id', { count: 'exact', head: true }).eq('form_id', formId).gte('created_at', new Date(Date.now() - 60_000).toISOString());
+  if (countError) throw countError;
+  if ((count ?? 0) >= MAX_PER_MINUTE) return { formId, ok: false, busy: true, message: '', errors: {}, values };
   const labelled = Object.fromEntries(def.fields.filter((f) => INPUT_TYPES.includes(f.type) && entry[f.id] != null).map((f) => [f.label, displayValue(f, entry)]));
   const { error: insertError } = await db.from('form_submissions').insert({
     form: form.title,
     form_id: formId,
-    data: { entry, values: labelled, referrer: request.headers.get('referer'), user_agent: request.headers.get('user-agent') },
+    data: { entry, values: labelled, referrer: request.headers.get('referer')?.slice(0, 500), user_agent: request.headers.get('user-agent')?.slice(0, 500) },
   });
   if (insertError) throw insertError;
   await notify(form, entry, new URL(request.url).origin);
