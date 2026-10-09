@@ -224,7 +224,7 @@ the wildcard with the longest prefix (the `wildcard` column; in a PostgREST like
 changes gets one automatically (`redirectMovedEntry`, from the entries API).
 
 Addresses still not found are logged (`not_found`, via `not_found_hit`; files, admin and probes are
-left out) and listed on the screen with Add redirect. Saving a rule clears the entries it covers (for a
+left out; at most 5,000 addresses, those not seen for 30 days making room for new ones) and listed on the screen with Add redirect. Saving a rule clears the entries it covers (for a
 wildcard, every entry under its prefix, which can be many); the API returns the cleared paths, and
 reports a failed clear rather than hiding it.
 
@@ -290,7 +290,7 @@ the copy that has them set (production can't reach a local copy).
 
 `/search/?q=` lists the entries whose title, excerpt or body text (`entries.body_text`) contain every
 word, ranked by relevance (`Loader.queryRanked`: the phrase in the title, then words in title, excerpt,
-text; newest first on ties), in the types chosen under Settings > Search (`searchTypes`,
+text; newest first on ties; punctuation separates words; past 500 matches the newest 500 are ranked), in the types chosen under Settings > Search (`searchTypes`,
 `settings.site.search_types`; all types with a page by default). It renders the `search` template
 (migration 0021, `src/lib/content/search-template.ts`), else `index`; the page is noindex. The
 `search-form` block is a GET form to `/search/`. On any page with a `.c-search-form`, the page shell
@@ -332,7 +332,8 @@ fills its fields (those with a `compose` hint in the site config) from the mater
 `fields` (`src/lib/compose/entry-fields.ts`) when the entry is created, and later with `update_fields`
 (just the changed fields). The editor applies updates to its sidebar form (`LivePage.setFields`),
 saved with the page. `src/lib/compose/`: `materials.ts` keeps a registry with stable ids (image-1,
-doc-1...; PDFs in the private `compose` bucket, link text fetched once with private addresses refused,
+doc-1...; PDFs in the private `compose` bucket, link text fetched once with private addresses refused (`private-address.ts`, a subnet list that also
+reads IPv4 addresses written as IPv6; `scripts/checks/private-address.ts`),
 images re-encoded to JPEG for Claude); `claude.ts` sends the whole conversation (prompt-cached for an hour: the system prompt and the conversation up to the latest message; the page's current sections and fields follow the cache breakpoint) and
 Claude either replies or calls `build_page` with the complete page plan (`spec.ts`); `build.ts` turns
 the plan into components in the house style. Blocks built by a conversation carry its id prefix, so
@@ -350,7 +351,9 @@ POSTs `{ jobId, token }` to the background function `netlify/functions/compose-b
 (answers 202, runs up to 15 minutes); under `astro dev` the route runs the job in-process. The runner
 claims the job with its token and writes progress and the result or error to the row; the panel polls
 `GET /api/admin/compose?job=<id>`; a job silent for 3 minutes or older than 16 is reported as failed.
-One turn at a time per conversation (409 otherwise).
+One turn at a time per conversation (409 otherwise) and two per person (429). Only the latest message
+carries its selected block's JSON, and a block over 60,000 characters is refused (400) rather than cut.
+Text materials count toward the budget of what is sent in full (`MATERIAL_BUDGET.text`).
 
 ## How rendering works
 
@@ -435,7 +438,8 @@ grid / list block for any page (`public/assets/js/event-calendar.js`) and `singl
 `/events/past/`, `/events/month/<Y-m>/`, `/events/day/<Y-m-d>/`, with `?q=` search and `?from=<Y-m-d>`.
 Feeds (`src/lib/events/ical.ts`): `/events.ics` (same `q`, `month`, `past` filters) and
 `/event/<slug>/[<Y-m-d>/]event.ics`; they describe `SITE_TZ` from the runtime's time zone data
-(`src/lib/events/timezone.ts`).
+(`src/lib/events/timezone.ts`) and are cached at the CDN like pages. The month and day views link no
+further than the first and last event (and today); a view outside that range is noindex.
 
 The site timezone (`SITE_TZ`) is set by admins under Settings (`settings.site.timezone`; the config's
 `timezone` is the default). It is a live binding in `src/lib/site`: the middleware and compose jobs
@@ -446,15 +450,16 @@ one with their local times kept (`moveEventsToTimezone`); events with their own 
 Recurrence (`src/lib/recurrence.ts`): an event's rule is stored in `fields.recurrence` and edited in
 the event sidebar. Occurrences are virtual entries (negative ids, own `event_start`/`start`/`end`) at
 `/event/<slug>/<Y-m-d>/`; `/event/<slug>/` redirects to the next one. `Loader.query` expands series
-only when a recurring event exists. A series is expanded to the horizon (two years ahead); of a long
+only when a recurring event exists (for an upcoming list, only series and events still to start are
+loaded). A series is expanded to the horizon (two years ahead); of a long
 one the newest 1,100 occurrences are kept. Saving an event rewrites the `start`/`end` fields the views read.
 
 ## Editor
 
 `/admin/` (Supabase Auth; `profiles.role`: editor, admin, or viewer = no access). Editors manage content,
 templates, media, forms and compose; site settings and users (`/admin/users/`: roles, invitations) are
-for admins (`ADMIN_ONLY` in `src/middleware.ts`; settings writes are admin-only in RLS via
-`is_admin()`). `src/puck/Editor.tsx` renders blocks through the same string renderer inside Puck
+for admins, as is the redirects API (`ADMIN_ONLY` in `src/middleware.ts`; settings writes are admin-only in RLS via
+`is_admin()`; the users API checks the role itself too, since invitations use the service key). `src/puck/Editor.tsx` renders blocks through the same string renderer inside Puck
 (`BlockView.tsx` parses HTML to React; slots become the block's inner wrapper element). The left rail
 has Blocks (and Patterns), Outline and an accessibility check (`A11yPanel.tsx`). Problems a person has to judge
 (warnings, and text over an image, which is always a problem since its contrast can't be measured) can be
@@ -480,7 +485,11 @@ unchanged; unpublished pages save in place as drafts. **Publish** / **Publish ch
 the header also offers Discard changes and Unpublish (`PUT /api/admin/entries/:id` with `action`).
 **Preview** opens `/admin/preview/<id>/` with the editor's current state (POST) or the saved draft
 (GET), rendered like the site with a preview bar and noindex. Templates and layout mode have no drafts:
-"Save & apply" changes every page using them.
+"Save & apply" changes every page using them. A save says which stored version it is based on (`base`,
+the `updated_at` the editor loaded; `templateBase` in layout mode): if someone else saved since, it is
+refused with 409 (`isStale`) and the editor asks before saving over their version. Each save and
+accessibility mark answers with the new `updated_at`. Tags and terms are linked new-first, then the
+others removed (`setLinks`), and a tag two saves create at once is made once.
 
 Record types (`record: true`, such as venues) are data only: `/admin/edit/<id>/` shows a plain form for
 them (`src/puck/RecordEditor.tsx`) with the entries that use them. An `entry` field (`EntryField` in
@@ -511,10 +520,10 @@ npx tsx scripts/checks/recurrence.ts    # recurrence rules, DST, event date sync
 npx tsx --env-file=.env scripts/media-formats.ts   # backfill AVIF/WebP for existing media
 ```
 
-`.github/workflows/check.yml` runs `npm run check` and the two checks above on every push and pull
+`.github/workflows/check.yml` runs `npm run check`, the two checks above and `scripts/checks/private-address.ts` on every push and pull
 request.
 
-`scripts/safety-e2e.ts` (uploads, form limits, shared addresses, restore as a job) and
+`scripts/safety-e2e.ts` (uploads, form limits, shared addresses, stale saves, tags, search, roles, restore as a job) and
 `scripts/sync-e2e.ts` (a sync stopped by a row made since Compare; undoing a half-finished sync; needs
 a second local stack as `SYNC_REMOTE_*`) use the running site without a browser and remove what they make.
 

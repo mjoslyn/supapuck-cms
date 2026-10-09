@@ -15,18 +15,19 @@ import { blocksFor, briefBlocksFor, buildMaterials, type Registry } from './mate
  * What one turn sends of the conversation's materials in full, newest first: well inside the API's
  * limits on images and request size, which a long conversation re-sending everything went past.
  */
-export const MATERIAL_BUDGET = { images: 20, pdfs: 5, bytes: 20 * 1024 * 1024 };
+export const MATERIAL_BUDGET = { images: 20, pdfs: 5, bytes: 20 * 1024 * 1024, text: 400_000 };
 
 /** Which turns' materials go in full: newest first, while the running totals stay within the budget. */
-export function turnsInFull(turns: { images: number; pdfs: number; bytes: number }[], budget = MATERIAL_BUDGET): boolean[] {
-  const used = { images: 0, pdfs: 0, bytes: 0 };
+export function turnsInFull(turns: { images: number; pdfs: number; bytes: number; text?: number }[], budget = MATERIAL_BUDGET): boolean[] {
+  const used = { images: 0, pdfs: 0, bytes: 0, text: 0 };
   const full = turns.map(() => false);
   for (let i = turns.length - 1; i >= 0; i--) {
     const t = turns[i];
-    if (used.images + t.images > budget.images || used.pdfs + t.pdfs > budget.pdfs || used.bytes + t.bytes > budget.bytes) continue;
+    if (used.images + t.images > budget.images || used.pdfs + t.pdfs > budget.pdfs || used.bytes + t.bytes > budget.bytes || used.text + (t.text ?? 0) > budget.text) continue;
     used.images += t.images;
     used.pdfs += t.pdfs;
     used.bytes += t.bytes;
+    used.text += t.text ?? 0;
     full[i] = true;
   }
   return full;
@@ -138,6 +139,8 @@ export async function runJob(jobId: string, token: string): Promise<void> {
       images: blocks.filter((b: any) => b.type === 'image').length,
       pdfs: blocks.filter((b: any) => b.type === 'document').length,
       bytes: blocks.reduce((n: number, b: any) => n + (b.source?.data?.length ?? 0), 0),
+      // Text documents and link text: characters (about four to a token).
+      text: blocks.reduce((n: number, b: any) => n + (b.type === 'text' ? b.text?.length ?? 0 : 0), 0),
     }));
     const full = turnsInFull(sizes);
     userTurns.forEach(([i, t], k) => materialBlocks.set(i, full[k] ? built[k] : briefBlocksFor(s.materials, t.added)));

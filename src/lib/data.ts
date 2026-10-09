@@ -36,6 +36,10 @@ export interface QueryResult {
   pages: number;
 }
 
+/** A search's words. Characters that mean something in a filter (%, _, comma, brackets) separate words,
+ *  so "(annual)" finds "Annual Report". */
+const searchWords = (search?: string) => (search ?? '').replace(/[%_,()]/g, ' ').split(/\s+/).filter(Boolean);
+
 export class Loader {
   entries = new Map<number, Entry>();
   media = new Map<number, Media>();
@@ -198,8 +202,8 @@ export class Loader {
     let q = this.db.from('entries').select(select, { count: 'exact' }).eq('status', 'publish').in('type', types);
     if (matchIds) q = q.in('id', matchIds);
     // Search: every word must appear in the title, excerpt or text.
-    for (const word of (args.search ?? '').split(/\s+/).filter(Boolean)) {
-      const like = `%${word.replace(/[%_,()]/g, ' ')}%`;
+    for (const word of searchWords(args.search)) {
+      const like = `%${word}%`;
       q = q.or(`title.ilike.${like},excerpt.ilike.${like},body_text.ilike.${like}`);
     }
     if (args.featuredOnly) q = q.eq('fields->>featured', 'true');
@@ -208,7 +212,12 @@ export class Loader {
     if (args.parents?.length) q = q.in('parent_id', args.parents);
     // Search lists a recurring event once (its page leads to the next occurrence), ranked (relevance).
     if (args.orderBy === 'relevance') return this.queryRanked(q, args, perPage, offset);
-    if (types.includes('event') && (await this.hasRecurring())) return this.queryExpanded(q, args, perPage, offset);
+    if (types.includes('event') && (await this.hasRecurring())) {
+      // Upcoming: only the rows that can have a date ahead (a series, or a start still to come), not
+      // every past event for the expansion to drop again.
+      if (args.upcoming) q = q.or(`event_start.gte.${this.now.toISOString()},fields->${RECURRENCE_KEY}.not.is.null`);
+      return this.queryExpanded(q, args, perPage, offset);
+    }
     if (args.upcoming) q = q.gte('event_start', this.now.toISOString());
 
     const orderBy = args.upcoming ? 'event_start' : args.orderBy ?? 'date';
@@ -245,10 +254,11 @@ export class Loader {
    * whole phrase in the title first, then each word in the title, excerpt and text; newest first on ties.
    */
   private async queryRanked(q: any, args: QueryArgs, perPage: number, offset: number): Promise<QueryResult> {
-    const { data, error } = await q.limit(500);
+    // shortcut: past 500 matches only the newest 500 are ranked; rank in SQL if a site's searches get there.
+    const { data, error } = await q.order('published_at', { ascending: false }).order('id').limit(500);
     if (error) throw error;
-    const phrase = (args.search ?? '').toLowerCase();
-    const words = phrase.split(/\s+/).filter(Boolean);
+    const words = searchWords(args.search).map((w) => w.toLowerCase());
+    const phrase = words.join(' ');
     const score = (r: any) => {
       const title = String(r.title ?? '').toLowerCase();
       const excerpt = String(r.excerpt ?? '').toLowerCase();

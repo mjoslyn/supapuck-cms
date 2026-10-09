@@ -56,6 +56,8 @@ with `types` are offered only on those entry types. A **Compose** panel docks be
   `action`).
 - **Preview** opens `/admin/preview/<id>/` with the editor's current state (POST) or the saved draft
   (GET), rendered like the site with a preview bar and noindex.
+- If someone else saved the page (or template) since you opened it, your save is refused and the
+  editor asks whether to save over their version; cancel and reload to see theirs first.
 
 A published entry whose address changes gets a redirect from the old one automatically.
 

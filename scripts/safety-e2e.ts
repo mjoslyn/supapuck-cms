@@ -40,6 +40,36 @@ const { data: post1 } = await db.from('entries').select('id, slug').eq('id', mad
 ok('a post titled like a page gets its own address', post1?.slug !== page!.slug, post1?.slug);
 r = await json('PUT', `/api/admin/entries/${made.id}`, { action: 'draft', entry: { title: page!.title, slug: page!.slug } }); ok('typed clash refused', r.status === 400, await r.text());
 
+// two editors: a save based on an older version is refused, unless sent again without its base
+const stamp = async () => (await db.from('entries').select('updated_at').eq('id', made.id).single()).data!.updated_at;
+const old = await stamp();
+r = await json('PUT', `/api/admin/entries/${made.id}`, { action: 'draft', base: old, entry: { title: 'First', slug: post1!.slug, tags: ['Safety e2e tag', 'Other e2e tag'] } }); const first = await r.json();
+ok('save with the current base', r.ok && first.updated_at === (await stamp()) && first.updated_at !== old);
+r = await json('PUT', `/api/admin/entries/${made.id}`, { action: 'draft', base: old, entry: { title: 'Second', slug: post1!.slug } }); ok('stale save refused', r.status === 409, await r.text());
+ok('first save kept', (await db.from('entries').select('title').eq('id', made.id).single()).data?.title === 'First');
+// two saves making the same new tag at once both succeed; tags are replaced, not piled up
+const { data: other } = await db.from('entries').insert({ type: 'post', slug: 'safety-e2e-other', title: 'Other', status: 'draft' }).select('id').single();
+const both = await Promise.all([made.id, other!.id].map((id) => json('PUT', `/api/admin/entries/${id}`, { action: 'draft', entry: { title: 'Tagged', slug: id === made.id ? post1!.slug : 'safety-e2e-other', tags: ['Racing e2e tag'] } })));
+ok('same new tag from two saves', both.every((x) => x.ok), both.map((x) => x.status).join(','));
+const tagsOf = async (id: number) => ((await db.from('entry_terms').select('terms!inner(name, taxonomy)').eq('entry_id', id).eq('terms.taxonomy', 'tag')).data ?? []).map((t: any) => t.terms.name).sort().join('|');
+ok('tags replaced', (await tagsOf(made.id)) === 'Racing e2e tag' && (await tagsOf(other!.id)) === 'Racing e2e tag', await tagsOf(made.id));
+ok('tag made once', (await db.from('terms').select('id').eq('taxonomy', 'tag').eq('name', 'Racing e2e tag')).data?.length === 1);
+await db.from('entries').delete().eq('id', other!.id); await db.from('terms').delete().eq('taxonomy', 'tag').like('name', '%e2e tag');
+
+// search: punctuation around a word doesn't hide the page
+r = await fetch(`${base}/api/search?q=${encodeURIComponent(`(${page!.title})`)}`); ok('search with brackets', JSON.stringify(await r.json()).includes(page!.slug));
+
+// an editor can't use the redirects API; Compose refuses a block too large to read back
+const editor = { email: 'safety-e2e-editor@example.com', password: `e2e-${crypto.randomUUID()}` };
+const { data: account } = await db.auth.admin.createUser({ ...editor, email_confirm: true }); await db.from('profiles').update({ role: 'editor' }).eq('id', account.user!.id);
+const edLogin = await fetch(`${base}/api/auth/login`, { method: 'POST', redirect: 'manual', headers: { Origin: base }, body: new URLSearchParams(editor) });
+const edH = { Origin: base, Cookie: edLogin.headers.getSetCookie().map((c) => c.split(';')[0]).join('; ') };
+ok('editor signed in', (await fetch(`${base}/api/admin/me`, { headers: edH })).ok);
+ok('redirects API is for admins', (await fetch(`${base}/api/admin/redirects?id=0`, { method: 'DELETE', headers: edH })).status === 403);
+await db.auth.admin.deleteUser(account.user!.id);
+const big = new FormData(); big.append('message', 'change this'); big.append('targetId', 'x'); big.append('targetJson', JSON.stringify({ type: 'text', props: { id: 'x', attrs: { content: 'x'.repeat(61_000) } } }));
+r = await fetch(`${base}/api/admin/compose`, { method: 'POST', headers: H, body: big }); ok('oversize block refused', r.status === 400 && /too large/.test(await r.text()), String(r.status));
+
 // restore as a job
 r = await json('POST', '/api/admin/sync', { action: 'snapshot', site: 'here' }); const snap = await r.json(); ok('snapshot', r.ok, JSON.stringify(snap));
 await db.from('entries').update({ title: 'CHANGED' }).eq('id', page!.id);

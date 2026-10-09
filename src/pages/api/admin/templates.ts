@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { duplicateTemplate } from '../../../lib/admin/duplicate';
 import { uniqueAreas } from '../../../lib/content/areas';
 import { slugify } from '../../../lib/slug';
+import { isStale, STALE } from '../../../lib/admin/save';
 
 /** Duplicate a template, part or pattern (form post { kind, slug } from the list), then open the copy. */
 export const POST: APIRoute = async ({ request, locals, redirect }) => {
@@ -32,8 +33,9 @@ export const POST: APIRoute = async ({ request, locals, redirect }) => {
 };
 
 export const PUT: APIRoute = async ({ request, locals }) => {
-  const { kind, slug, content } = await request.json();
+  const { kind, slug, content, base } = await request.json();
   if (!['template', 'part', 'pattern'].includes(kind) || !slug) return new Response('Bad request', { status: 400 });
+  if (isStale(base, (await locals.db.from('templates').select('updated_at').eq('kind', kind).eq('slug', slug).maybeSingle()).data?.updated_at)) return new Response(STALE, { status: 409 });
   // A pattern stays linked (or not) through edits that don't say otherwise.
   if (kind === 'pattern' && content?.root && !('linked' in (content.root.props ?? {}))) {
     const { data: was } = await locals.db.from('templates').select('content').eq('kind', kind).eq('slug', slug).maybeSingle();
@@ -41,7 +43,7 @@ export const PUT: APIRoute = async ({ request, locals }) => {
   }
   // Each Page content block shows its own area (a repeat gets the next free name).
   if (Array.isArray(content?.content)) content.content = uniqueAreas(content.content);
-  const { error } = await locals.db.from('templates').update({ content }).eq('kind', kind).eq('slug', slug);
+  const { data, error } = await locals.db.from('templates').update({ content }).eq('kind', kind).eq('slug', slug).select('updated_at').maybeSingle();
   if (error) return new Response(error.message, { status: 400 });
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, updated_at: data?.updated_at });
 };

@@ -101,7 +101,9 @@ function messages(r: ConverseRequest): Anthropic.Messages.MessageParam[] {
     pendingTool = undefined;
     const last = i === r.turns.length - 1;
     const intro = i === 0 ? `Create a new ${typeLabel(r.entryType).toLowerCase()}.\n\n` : '';
-    const target = t.target ? `\n\nSelected block (${t.target.label}), to change with edit_block:\n${t.target.json}` : '';
+    // Only the latest message carries its selected block: an earlier one was answered with an edit (in
+    // the reply that follows it), and re-sending every past block grew each request without end.
+    const target = !t.target ? '' : last ? `\n\nSelected block (${t.target.label}), to change with edit_block:\n${t.target.json}` : `\n\n(The block selected then was: ${t.target.label}.)`;
     content.push({ type: 'text', text: `${intro}${t.text || '(no message)'}${target}` });
     const mats = r.materialBlocks.get(i) ?? [];
     if (mats.length) content.push({ type: 'text', text: 'Materials added:' }, ...mats);

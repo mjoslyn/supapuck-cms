@@ -82,7 +82,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const links = String(form.get('links') ?? '').split(/\s+/).map((l) => l.trim()).filter((l) => /^https?:\/\//i.test(l)).slice(0, 20);
   if (!message.trim() && !docs.length && !mediaIds.length && !links.length) return new Response('Write a message or add some materials.', { status: 400 });
   const targetJson = String(form.get('targetJson') ?? '');
-  const target = targetJson ? { id: String(form.get('targetId') ?? ''), label: String(form.get('targetLabel') ?? 'selected block').slice(0, 200), json: targetJson.slice(0, 60_000) } : undefined;
+  // Cut short, the block couldn't be read back after Claude's (paid) answer; so it is refused whole.
+  if (targetJson.length > 60_000) return new Response('That block is too large to change in one go. Select a smaller block inside it.', { status: 400 });
+  const target = targetJson ? { id: String(form.get('targetId') ?? ''), label: String(form.get('targetLabel') ?? 'selected block').slice(0, 200), json: targetJson } : undefined;
+  // A person runs a turn or two at once (two conversations); more is a script spending the API key.
+  const { count: running } = await db.from('compose_jobs').select('id', { count: 'exact', head: true }).eq('author_id', locals.user.id).in('status', ['queued', 'running']).gte('updated_at', new Date(Date.now() - SILENT_MS).toISOString());
+  if ((running ?? 0) >= 2) return new Response('You already have two Compose turns running. Wait for one to finish.', { status: 429 });
 
   // The session: continued, the page's latest, or new.
   const sessionId = String(form.get('sessionId') ?? '');

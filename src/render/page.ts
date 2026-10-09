@@ -263,7 +263,7 @@ export async function renderRequest(url: URL, db: SupabaseClient, form?: FormRes
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1" />
-${queried.kind === 'search' ? '	<meta name="robots" content="noindex, follow" />\n' : ''}	<title>${title}</title>
+${queried.kind === 'search' || (ctx.data.get('calendar') as { outside?: boolean } | undefined)?.outside ? '	<meta name="robots" content="noindex, follow" />\n' : ''}	<title>${title}</title>
 ${meta}${pre}<style id='core-block-supports-inline-css'>
 ${css}
 </style>

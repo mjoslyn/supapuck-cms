@@ -39,6 +39,7 @@ try {
   }
   out.editorNotice = await ed.getByText('That section is for admins.').count();
   out.editorSettingsApi = (await ed.request.put(`${origin}/api/admin/settings`, { data: { site: {} }, headers: { Origin: origin } })).status();
+  out.editorRedirectsApi = (await ed.request.delete(`${origin}/api/admin/redirects?id=0`, { headers: { Origin: origin } })).status();
   out.editorUsersApi = (await ed.request.post(`${origin}/api/admin/users`, { form: { action: 'role', id: created.user.id, role: 'admin' }, headers: { Origin: origin }, maxRedirects: 0 })).status();
   // Straight to the database with the editor's own session: settings writes are refused.
   const userDb = createClient(url, process.env.PUBLIC_SUPABASE_ANON_KEY!, { auth: { persistSession: false } });
