@@ -1,8 +1,7 @@
 # supapuck-cms
 
 > **This project has moved to [mjoslyn/moonpuck](https://github.com/mjoslyn/moonpuck).**
-> This repository is archived and no longer updated. Sites that use it as `upstream` should run
-> `git remote set-url upstream https://github.com/mjoslyn/moonpuck`.
+> This repository is archived and no longer updated.
 
 A CMS for small business and organisation sites: Astro rendering on
 Netlify, content in Supabase, the Puck visual editor, and Compose, which writes pages with Claude from
